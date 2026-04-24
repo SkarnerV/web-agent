@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# Vite cache
+.vite/
+
 # IDE
 .vscode/
 .idea/
@@ -24,6 +27,3 @@ npm-debug.log*
 # Cache
 .cache/
 *.tsbuildinfo
-
-# Design files (optional - uncomment if you don't want to track them)
-# *.pen
