@@ -1,0 +1,103 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design System Variables - From opus4.7.pen */
+:root {
+  /* Brand colors */
+  --brand-50: #EFF6FF;
+  --brand-100: #DBEAFE;
+  --brand-400: #60A5FA;
+  --brand-500: #2563EB;
+  --brand-600: #1D4ED8;
+
+  /* Gray scale */
+  --gray-50: #F8FAFC;
+  --gray-100: #F1F5F9;
+  --gray-200: #E2E8F0;
+  --gray-300: #CBD5E1;
+  --gray-400: #94A3B8;
+  --gray-500: #64748B;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1E293B;
+  --gray-900: #0F172A;
+
+  /* Functional colors */
+  --success-50: #ECFDF5;
+  --success-500: #10B981;
+  --error-50: #FEE2E2;
+  --error-500: #EF4444;
+  --warning-50: #FEF3C7;
+  --warning-500: #F59E0B;
+  --info-50: #EFF6FF;
+  --info-500: #3B82F6;
+
+  /* Text colors */
+  --text-primary: #0F172A;
+  --text-secondary: #475569;
+  --text-tertiary: #94A3B8;
+  --text-inverse: #FFFFFF;
+
+  /* Border colors */
+  --border-strong: #CBD5E1;
+  --border-subtle: #E2E8F0;
+
+  /* Background colors */
+  --bg-canvas: #F8FAFC;
+  --bg-hover: #F1F5F9;
+  --bg-surface: #FFFFFF;
+  --white: #FFFFFF;
+
+  /* Border radius */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Font */
+  --font-sans: Inter;
+}
+
+/* Base styles */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Focus ring */
+*:focus-visible {
+  outline: 2px solid var(--brand-500);
+  outline-offset: 2px;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
