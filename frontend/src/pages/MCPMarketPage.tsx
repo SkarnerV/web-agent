@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { Search, Filter, Plug, ArrowRight, CheckCircle } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
@@ -133,12 +134,13 @@ const CategoryItem: React.FC<{ name: string; count: number; active?: boolean; on
 
 // MCPMarketPage Component
 const MCPMarketPage: React.FC = () => {
+  const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = React.useState('')
   const [activeCategory, setActiveCategory] = React.useState('全部')
 
-  const handleUseMCP = (id: string) => {
-    // TODO: Implement MCP usage
-    console.log('Using MCP:', id)
+  const handleUseMCP = (_id: string) => {
+    // Navigate to MCP add page to install
+    navigate('/mcp/add')
   }
 
   return (

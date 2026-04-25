@@ -56,7 +56,9 @@ const KBCard: React.FC<{
   docCount: number
   updatedAt: string
   onClick?: () => void
-}> = ({ name, description, iconBg, docCount, updatedAt, onClick }) => {
+  onView?: () => void
+  onManage?: () => void
+}> = ({ name, description, iconBg, docCount, updatedAt, onClick, onView, onManage }) => {
   return (
     <div 
       className="w-full p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3 hover:shadow-md transition-shadow cursor-pointer"
@@ -91,8 +93,8 @@ const KBCard: React.FC<{
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button variant="primary" size="sm">查看</Button>
-        <Button variant="secondary" size="sm">管理</Button>
+        <Button variant="primary" size="sm" onClick={onView}>查看</Button>
+        <Button variant="secondary" size="sm" onClick={onManage}>管理</Button>
       </div>
     </div>
   )
@@ -127,6 +129,8 @@ const KnowledgeBasePage: React.FC = () => {
               docCount={kb.docCount}
               updatedAt={kb.updatedAt}
               onClick={() => navigate(`/knowledge/${kb.id}`)}
+              onView={() => navigate(`/knowledge/${kb.id}`)}
+              onManage={() => navigate(`/knowledge/${kb.id}`)}
             />
           ))}
         </div>

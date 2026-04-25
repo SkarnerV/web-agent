@@ -1,4 +1,5 @@
 import React from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { Wand, ArrowRight } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
@@ -102,11 +103,12 @@ const CategoryTab: React.FC<{ name: string; active?: boolean; onClick?: () => vo
 
 // SkillMarketPage Component
 const SkillMarketPage: React.FC = () => {
+  const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = React.useState('全部')
 
-  const handleUseSkill = (id: string) => {
-    // TODO: Implement skill usage
-    console.log('Using skill:', id)
+  const handleUseSkill = (_id: string) => {
+    // Navigate to skill detail or chat to use the skill
+    navigate('/chat')
   }
 
   return (
