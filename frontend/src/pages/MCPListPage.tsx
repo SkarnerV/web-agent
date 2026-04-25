@@ -129,12 +129,14 @@ const MCPListPage: React.FC = () => {
                   size="sm" 
                   iconOnly 
                   icon={<Edit className="w-4 h-4" />}
+                  onClick={() => navigate('/mcp/add')}
                 />
                 <Button 
                   variant="ghost" 
                   size="sm" 
                   iconOnly 
                   icon={<Trash2 className="w-4 h-4" />}
+                  onClick={() => console.log('Delete MCP:', mcp.id)}
                 />
               </div>
             </div>
