@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
-import { Play, Wand, Code } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Play, Wand, Code, CheckCircle } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
@@ -7,9 +8,34 @@ import { Input } from '../components/ui/Input'
 
 // SkillCreatePage Component
 const SkillCreatePage: React.FC = () => {
+  const navigate = useNavigate()
   const [skillName, setSkillName] = useState('')
   const [description, setDescription] = useState('')
   const [triggerCondition, setTriggerCondition] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
+
+  const handleSave = () => {
+    if (!skillName) return
+    setIsSaving(true)
+    // Simulate save operation
+    setTimeout(() => {
+      setIsSaving(false)
+      navigate('/skills')
+    }, 500)
+  }
+
+  const handleTest = () => {
+    if (!skillName) return
+    setIsTesting(true)
+    setTestResult(null)
+    // Simulate test operation
+    setTimeout(() => {
+      setIsTesting(false)
+      setTestResult('测试通过！Skill 执行成功。')
+    }, 1000)
+  }
 
   return (
     <Layout breadcrumb={[{ label: 'Skill' }, { label: '创建 Skill' }]}>
@@ -21,8 +47,8 @@ const SkillCreatePage: React.FC = () => {
           onChange={setSkillName}
           className="w-[300px]"
         />
-        <Button variant="primary" disabled={!skillName}>
-          保存
+        <Button variant="primary" disabled={!skillName || isSaving} onClick={handleSave}>
+          {isSaving ? '保存中...' : '保存'}
         </Button>
       </div>
 
@@ -133,10 +159,19 @@ const SkillCreatePage: React.FC = () => {
             variant="secondary" 
             icon={<Play className="w-4 h-4" />}
             className="w-full"
-            disabled={!skillName}
+            disabled={!skillName || isTesting}
+            onClick={handleTest}
           >
-            测试 Skill
+            {isTesting ? '测试中...' : '测试 Skill'}
           </Button>
+
+          {/* Test Result */}
+          {testResult && (
+            <div className="p-4 bg-success-50 rounded-lg border border-success-500 flex items-center gap-2">
+              <CheckCircle className="w-5 h-5 text-success-500" />
+              <span className="text-sm text-success-500">{testResult}</span>
+            </div>
+          )}
 
           {/* Tips */}
           <div className="p-4 bg-gray-50 rounded-lg border border-border-subtle">
