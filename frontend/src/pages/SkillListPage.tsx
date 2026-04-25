@@ -69,7 +69,9 @@ const SkillCard: React.FC<{
   agentCount: number
   updatedAt: string
   onClick?: () => void
-}> = ({ name, description, iconBg, iconText, status, agentCount, updatedAt, onClick }) => {
+  onUse?: () => void
+  onEdit?: () => void
+}> = ({ name, description, iconBg, iconText, status, agentCount, updatedAt, onClick, onUse, onEdit }) => {
   const statusLabel = {
     draft: '草稿',
     published: '已发布',
@@ -110,8 +112,8 @@ const SkillCard: React.FC<{
 
       {/* Actions */}
       <div className="flex gap-2">
-        <Button variant="primary" size="sm">使用</Button>
-        <Button variant="secondary" size="sm">编辑</Button>
+        <Button variant="primary" size="sm" onClick={onUse}>使用</Button>
+        <Button variant="secondary" size="sm" onClick={onEdit}>编辑</Button>
       </div>
     </div>
   )
@@ -148,6 +150,8 @@ const SkillListPage: React.FC = () => {
               status={skill.status}
               agentCount={skill.agentCount}
               updatedAt={skill.updatedAt}
+              onUse={() => navigate('/chat')}
+              onEdit={() => navigate('/skills/create')}
             />
           ))}
         </div>
