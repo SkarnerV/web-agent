@@ -1,0 +1,59 @@
+spring:
+  application:
+    name: agent-platform
+  threads:
+    virtual:
+      enabled: true
+  profiles:
+    default: local
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+  mvc:
+    throw-exception-if-no-handler-found: true
+  web:
+    resources:
+      add-mappings: false
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/agent_platform}
+    username: ${SPRING_DATASOURCE_USERNAME:agent}
+    password: ${SPRING_DATASOURCE_PASSWORD:agent}
+    driver-class-name: org.postgresql.Driver
+  flyway:
+    enabled: false
+  data:
+    redis:
+      host: ${SPRING_REDIS_HOST:localhost}
+      port: ${SPRING_REDIS_PORT:6379}
+
+server:
+  port: 8080
+  forward-headers-strategy: framework
+  servlet:
+    context-path: /
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+mybatis-plus:
+  global-config:
+    db-config:
+      logic-delete-field: deletedAt
+      logic-delete-value: "now()"
+      logic-not-delete-value: "null"
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  pattern:
+    level: "%5p [%X{requestId:-}]"
+  level:
+    com.agentplatform: INFO

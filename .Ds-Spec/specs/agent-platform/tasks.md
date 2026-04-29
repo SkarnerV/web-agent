@@ -1,0 +1,916 @@
+# 实现计划
+
+## MVP 范围定义
+
+**MVP 目标**：Agent 对话核心链路 + 四类资产 CRUD + 市场基础能力 + 文件上传下载。用户可创建 Agent、绑定工具/Skill/知识库，通过 SSE 流式对话，发布到市场并被他人发现使用。
+
+**MVP 包含**：
+
+- Agent / Skill / MCP / 知识库 CRUD 及对话引擎
+- 文件上传/下载/过期清理
+- 市场发布/搜索/收藏/导入
+- 模型注册表（内置 + 自定义）
+- 工具注册表（内置 + MCP + 知识库检索）
+
+**MVP 明确排除**：
+
+- W3 OAuth 鉴权（MVP 用 stub 用户上下文替代，见任务 1.6）
+- RBAC 权限矩阵（MVP 用简化可见性过滤替代，见任务 1.7）
+- AES-256-GCM 凭据加密（MVP 中 MCP auth_headers / API Key 明文存储，见任务 1.8）
+- 审计日志模块（`ap-module-audit` 不实现，所有 audit_log 调用点写 TODO 注释）
+- 管理员功能（用户管理、W3 同步、角色修改）
+- ClamAV 安全扫描（MVP 中 scan_status 直接设为 clean）
+- `refresh_tokens` 表及 Token 刷新/黑名单机制
+
+**MVP Stub 约定**：所有 stub 实现必须满足接口契约（方法签名、返回类型），保证后续替换为真实实现时不影响调用方。Stub 类统一放在 `common-core` 的 `stub` 包下，用 `@Profile("!production")` 注解标记。
+
+---
+
+## 一键验证命令
+
+```bash
+# 拉起基础设施
+docker compose -f docker/docker-compose.infra.yml up -d
+
+# 编译全量
+./mvnw clean package -DskipTests
+
+# 运行全部测试（单元 + 集成 + 契约）
+./mvnw verify
+
+# 仅运行单元测试
+./mvnw test
+
+# 仅运行集成测试
+./mvnw verify -Dgroups=integration
+
+# 启动应用（本地）
+./mvnw spring-boot:run -pl ap-app -Dspring-boot.run.profiles=local
+```
+
+---
+
+- 1. 项目脚手架与基础设施
+  - 1.1 创建 Maven 多模块骨架
+    - Scope:
+      - 按 §2.7 创建目录结构：`ap-app`、`ap-module-agent`、`ap-module-chat`、`ap-module-asset`、`ap-module-market`、`ap-module-file`、`ap-common/common-core`、`ap-common/common-mybatis`、`ap-common/common-redis`
+      - 父 POM BOM 版本管理：Spring Boot 3.3、MyBatis-Plus 3.5、Spring AI 1.0、MapStruct 1.6、Flyway
+      - `ap-app` 启动类 `@SpringBootApplication`
+      - 暂不创建 `ap-module-auth` 和 `ap-module-audit`（MVP 排除）
+    - Definition of Done:
+      - `./mvnw clean package -DskipTests` 编译通过
+      - 每个模块有 `pom.xml`、`src/main/java`、`src/test/java` 标准结构
+      - 模块间依赖关系符合 §2.7 规则（`ap-module-*` 仅依赖 `ap-common`）
+    - Acceptance Criteria:
+      - Given 完整项目结构，When 执行 `./mvnw clean package -DskipTests`，Then 编译成功且产出 `ap-app/target/ap-app-*.jar`
+      - Given 任一 `ap-module-*`，When 检查其 `pom.xml` 依赖，Then 不存在对其他 `ap-module-*` 的直接依赖
+    - Verification: `./mvnw clean package -DskipTests`
+    - *需求：§2.7*
+  - 1.2 配置 Docker Compose 本地开发环境
+    - Scope:
+      - `docker/docker-compose.infra.yml`：PostgreSQL 16 + pgvector 扩展、Redis 7、RabbitMQ 3.13（含管理界面）、MinIO（含 console）
+      - `application-local.yml`：各数据源连接配置、MinIO endpoint/credentials
+      - 启动后自动创建 MinIO bucket
+    - Definition of Done:
+      - `docker compose -f docker/docker-compose.infra.yml up -d` 一键拉起全部组件
+      - Spring Boot 应用 `--spring.profiles.active=local` 启动后能连通全部组件
+    - Acceptance Criteria:
+      - Given Docker Compose 启动完成，When 执行 `docker compose ps`，Then 四个服务均为 healthy
+      - Given 应用启动，When 连接 PostgreSQL，Then `SELECT 1` 返回成功且 pgvector 扩展已安装
+    - Verification: `docker compose -f docker/docker-compose.infra.yml up -d && docker compose -f docker/docker-compose.infra.yml ps`
+    - *需求：§2.3, §2.5*
+  - 1.3 配置 Spring MVC + Virtual Threads
+    - Scope:
+      - `application.yml` 开启 `spring.threads.virtual.enabled: true`
+      - 编写冒烟测试端点 `GET /api/v1/health`，返回 `{"status":"ok","thread":"VirtualThread-xxx"}`
+      - 编写 SSE 冒烟端点，验证 `SseEmitter` 能推送 3 个事件后 complete
+    - Definition of Done:
+      - 应用启动后 `GET /api/v1/health` 响应中 thread 名包含 `VirtualThread`
+      - SSE 冒烟端点返回 `text/event-stream`，收到 3 个事件
+      - 冒烟集成测试通过
+    - Acceptance Criteria:
+      - Given 应用启动，When 请求 health 端点，Then thread 字段证实运行在 Virtual Thread 上
+      - Given SSE 冒烟端点，When 客户端连接，Then 收到 3 个 SSE 事件后连接关闭
+    - Verification: `./mvnw test -pl ap-app -Dtest=SmokeTest`
+    - *需求：§2.8*
+  - 1.4 实现 common-core 公共组件
+    - Scope:
+      - `ApiResponse<T>`：统一成功响应包装
+      - `PageRequest`（page, page_size, sort_by, sort_order）、`PageResult<T>`（data, total）
+      - `ErrorCode` 枚举：§6.1 全部错误码（含 HTTP 状态码映射）
+      - `BizException(ErrorCode, details)`：业务异常
+      - `GlobalExceptionHandler`：`@RestControllerAdvice`，输出 §6.2 格式 JSON
+      - `request_id` 通过 `MDC` + Servlet Filter 注入
+    - Definition of Done:
+      - `ErrorCode` 枚举覆盖 §6.1 全部错误码
+      - `GlobalExceptionHandler` 处理 `BizException`、`MethodArgumentNotValidException`、`Exception`
+      - 单元测试验证所有错误码映射和响应格式
+    - Acceptance Criteria:
+      - Given 抛出 `BizException(FILE_SIZE_EXCEEDED)`，When 经过 GlobalExceptionHandler，Then 响应 HTTP 413 + `{"error":{"code":"FILE_SIZE_EXCEEDED","message":"...","details":{},"request_id":"..."}}`
+      - Given 任意 4xx/5xx 响应，When 检查 body，Then 均符合统一错误格式
+    - Verification: `./mvnw test -pl ap-common/common-core`
+    - *需求：§6.1, §6.2*
+  - 1.5 配置 common-mybatis 基础层
+    - Scope:
+      - `BaseEntity`：`id`(UUID)、`created_at`、`updated_at`、`created_by`、`updated_by`、`version`(乐观锁)、`deleted_at`(逻辑删除)
+      - MetaObjectHandler 自动填充 `created_at`/`updated_at`；`created_by`/`updated_by` 从 `UserContext` 取值
+      - `@Version` 乐观锁插件、`@TableLogic` 逻辑删除插件、分页插件
+    - Definition of Done:
+      - 插入记录时 `created_at`/`updated_at` 自动填充
+      - 更新记录时 `version` 自动 +1，并发更新触发乐观锁异常
+      - 查询自动过滤 `deleted_at IS NOT NULL` 的记录
+      - 单元测试覆盖以上三个行为
+    - Acceptance Criteria:
+      - Given 两个并发事务更新同一记录，When 后提交的事务执行，Then 抛出乐观锁异常
+      - Given 记录被软删除，When 通过 `selectById` 查询，Then 返回 null
+    - Verification: `./mvnw test -pl ap-common/common-mybatis`
+    - *需求：§5.2.1*
+  - 1.6 实现 MVP Stub — 用户上下文
+    - Scope:
+      - `UserContext` 接口（`common-core`）：`getCurrentUserId()`、`getCurrentUser()`
+      - `StubUserContext` 实现（`@Profile("!production")`）：返回固定测试用户（硬编码 UUID + name + org_id）
+      - `UserPrincipal` DTO：id, name, email, role, org_ids
+      - `ArgumentResolver` 支持 Controller 方法参数注入 `@CurrentUser UserPrincipal`
+      - `users` 表 Flyway 种子数据：插入该测试用户
+    - Definition of Done:
+      - 任意 Controller 方法可通过 `@CurrentUser` 获取当前用户
+      - 集成测试可通过 `TestUserContext` 切换不同用户身份
+    - Acceptance Criteria:
+      - Given MVP stub profile 激活，When Controller 方法使用 `@CurrentUser`，Then 返回固定测试用户
+      - Given 集成测试，When 设置 `TestUserContext.setUser(userB)`，Then 后续调用以 userB 身份执行
+    - Verification: `./mvnw test -pl ap-common/common-core -Dtest=UserContextTest`
+    - *需求：MVP Stub 约定*
+  - 1.7 实现 MVP Stub — 简化可见性过滤
+    - Scope:
+      - `PermissionChecker` 接口（`common-core`）：`checkAccess(userId, asset, requiredPermission)`
+      - `SimplePermissionChecker` 实现：仅校验 owner_id（owner 放行，非 owner 对 private 拒绝，其余放行），不做组织关系查询
+      - 返回 `ASSET_NOT_FOUND`（软删除）或 `ASSET_PERMISSION_DENIED`（非 owner 访问 private）
+      - 所有资产 Controller 在读写前调用 `PermissionChecker`
+      - 代码注释标注 `// TODO: 替换为完整 §3.6 权限矩阵实现`
+    - Definition of Done:
+      - `SimplePermissionChecker` 实现 `PermissionChecker` 接口
+      - Owner 可执行所有操作；非 owner 访问 private 资产返回 403
+      - 非 owner 访问 public / group_* 资产时 MVP 一律放行
+      - 单元测试覆盖 owner/非owner × private/public 四种组合
+    - Acceptance Criteria:
+      - Given 用户 A 创建 private Agent，When 用户 B 请求该 Agent，Then 返回 403 ASSET_PERMISSION_DENIED
+      - Given 用户 A 创建 public Agent，When 用户 B 请求该 Agent，Then 返回 200
+    - Verification: `./mvnw test -pl ap-common/common-core -Dtest=SimplePermissionCheckerTest`
+    - *需求：§3.6（最小实现），R12-7*
+  - 1.8 实现 MVP Stub — 凭据存储占位
+    - Scope:
+      - `CredentialStore` 接口（`common-core`）：`encrypt(plaintext) → stored`、`decrypt(stored) → plaintext`、`mask(stored) → masked`
+      - `PlainCredentialStore` 实现（`@Profile("!production")`）：`encrypt` / `decrypt` 为恒等函数，`mask` 截取后 4 位并补 `*`***
+      - MCP `auth_headers` 和自定义模型 `api_key` 通过 `CredentialStore` 读写
+      - 代码注释标注 `// TODO: 替换为 AES-256-GCM + Jasypt 实现`
+    - Definition of Done:
+      - `PlainCredentialStore` 通过 `CredentialStore` 接口被 MCP 和 Model 模块调用
+      - `mask("sk-abc123xyz")` 返回 `****xyz`
+      - API 响应中凭据字段调用 `mask()` 输出
+    - Acceptance Criteria:
+      - Given MCP auth_headers = `"Bearer token123"`，When 查询 MCP 列表，Then 返回 `"Bear****123"`
+      - Given 自定义模型 api_key = `"sk-abc123xyz"`，When 查询模型列表，Then 返回 `"****xyz"`
+    - Verification: `./mvnw test -pl ap-common/common-core -Dtest=PlainCredentialStoreTest`
+    - *需求：R12-1, R12-2（最小实现）*
+
+---
+
+- 1. 数据模型与数据库迁移
+  - 2.1 Flyway 迁移脚本 — 用户与资产表
+    - Scope:
+      - `V1__users_orgs.sql`：`users`、`organizations`、`org_memberships` 表 + 种子用户数据
+      - `V2__assets.sql`：`agents`、`skills`、`mcps`、`knowledge_bases`、`asset_versions`、`asset_references`、`agent_tool_bindings` 表
+      - 所有表包含 §5.2.1 公共字段
+    - Definition of Done:
+      - Flyway 迁移执行成功，无报错
+      - 种子用户可被查询到
+      - Testcontainers PG 集成测试通过
+    - Acceptance Criteria:
+      - Given 空数据库，When 应用启动执行 Flyway，Then 所有表创建成功且种子数据已插入
+      - Given `agent_tool_bindings` 表，When 检查约束，Then 三条 partial unique indexes 存在
+    - Verification: `./mvnw test -pl ap-app -Dtest=FlywayMigrationTest`
+    - *需求：§5.1*
+  - 2.2 Flyway 迁移脚本 — 对话、文件、市场表
+    - Scope:
+      - `V3__chat.sql`：`chat_sessions`、`chat_messages`、`chat_session_states` 表
+      - `V4__files.sql`：`files`、`file_download_tokens` 表
+      - `V5__market.sql`：`market_items`、`favorites`、`reviews` 表
+      - `V6__models.sql`：`builtin_models`（含种子数据）、`custom_models` 表
+      - `V7__knowledge.sql`：`kb_documents`、`kb_chunks`（含 pgvector `vector(1536)` 列）表
+    - Definition of Done:
+      - 全部迁移脚本按顺序执行成功
+      - `kb_chunks.embedding` 列类型为 `vector(1536)`
+      - `builtin_models` 含至少一条默认模型记录
+    - Acceptance Criteria:
+      - Given 全部迁移执行后，When 查询 `pg_extension`，Then pgvector 已安装
+      - Given `builtin_models` 种子数据，When 查询 `is_default=true` 记录，Then 恰好有一条
+    - Verification: `./mvnw test -pl ap-app -Dtest=FlywayMigrationTest`
+    - *需求：§5.1*
+  - 2.3 Flyway 迁移脚本 — 索引
+    - Scope:
+      - `V8__indexes.sql`：§5.3 全部索引，包括：
+        - 复合索引（agents/skills/mcps owner+status+deleted_at）
+        - GIN 全文搜索索引（agents/skills/mcps/market_items，`concat_ws` 写法）
+        - HNSW 向量索引（kb_chunks embedding）
+        - Partial unique indexes（agent_tool_bindings 三条）
+        - 其他查询优化索引
+    - Definition of Done:
+      - 迁移执行成功
+      - 集成测试验证 §5.3 表中全部索引均存在（通过 `pg_indexes` 查询）
+    - Acceptance Criteria:
+      - Given 全部索引创建后，When 查询 `pg_indexes WHERE tablename='agents'`，Then GIN 全文搜索索引存在
+      - Given `agent_tool_bindings`，When 查询索引，Then 三条 partial unique indexes 存在
+    - Verification: `./mvnw test -pl ap-app -Dtest=IndexVerificationTest`
+    - *需求：§5.3*
+  - 2.4 编写 MyBatis Entity、Mapper 和 DTO 转换器
+    - Scope:
+      - 所有表对应 Entity 类（继承 `BaseEntity`，含 `@Version`、`@TableLogic` 注解）
+      - 所有表对应 Mapper 接口（继承 `BaseMapper<T>`）
+      - MapStruct 转换器：所有 Entity ↔ DTO / VO / CreateRequest / UpdateRequest
+      - 每个模块的 Mapper 扫描路径独立配置
+    - Definition of Done:
+      - 所有 Entity 编译通过
+      - 所有 Mapper `selectById` / `insert` / `updateById` 基本操作可用
+      - MapStruct 转换器编译期生成代码无警告
+    - Acceptance Criteria:
+      - Given AgentEntity，When MapStruct 转换为 AgentDetailVO，Then 所有字段正确映射
+      - Given 每个 Mapper，When 执行 `insert` + `selectById`，Then 记录可正确读回
+    - Verification: `./mvnw test -pl ap-module-agent,ap-module-chat,ap-module-asset,ap-module-market,ap-module-file`
+    - *需求：§5.1, §5.2*
+
+---
+
+- 1. Agent 模块（ap-module-agent）
+  - 3.1 实现 Agent CRUD
+    - Scope:
+      - `AgentController`：POST / GET(list) / GET(detail) / PUT / DELETE
+      - `AgentService`：创建、分页+搜索查询、更新、软删除
+      - `AgentCreateRequest` / `AgentUpdateRequest` DTO + Jakarta Validation（name≤30, max_steps 1-50）
+      - 保存时写入 `asset_references`（skill/knowledge/collaborator）和 `agent_tool_bindings`（tool_bindings 数组）
+      - 软删除时调用 `PermissionChecker`，检查 `asset_references` + `agent_tool_bindings` 依赖冲突
+    - Definition of Done:
+      - 五个端点均可调用并返回正确响应
+      - 创建 Agent 后 `asset_references` 和 `agent_tool_bindings` 表有对应记录
+      - 校验失败返回 400 `AGENT_VALIDATION_FAILED`
+      - 软删除标记 `deleted_at`，再次查询不可见
+      - 单元测试覆盖校验规则；集成测试覆盖 CRUD + 乐观锁
+    - Acceptance Criteria:
+      - Given name 超过 30 字符，When 创建 Agent，Then 返回 400 AGENT_VALIDATION_FAILED
+      - Given max_steps=0 或 51，When 创建 Agent，Then 返回 400
+      - Given Agent 绑定 2 个 MCP 工具 + 1 个 Skill，When 创建成功后查询 agent_tool_bindings，Then 有 2 条记录
+      - Given 两个并发 PUT 请求，When version 冲突，Then 后者返回 409 ASSET_OPTIMISTIC_LOCK
+    - Verification: `./mvnw test -pl ap-module-agent`
+    - *需求：R2-1, R2-2, R2-7, R2-8, R2-10*
+  - 3.2 实现 Agent 复制
+    - Scope:
+      - `POST /api/v1/agents/{id}/duplicate`
+      - 深拷贝 Agent 配置，名称改为 `{原名}-副本`，status=draft
+      - 同步复制 `asset_references` 和 `agent_tool_bindings`
+    - Definition of Done:
+      - 副本与原 Agent 配置一致（除 id/name/status/timestamps）
+      - 副本的 `asset_references` 和 `agent_tool_bindings` 独立于原 Agent
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given Agent "Excel助手" 绑定 3 个工具，When 复制，Then 新 Agent 名为 "Excel助手-副本" 且绑定相同 3 个工具
+      - Given 修改副本配置，When 查询原 Agent，Then 原 Agent 配置不变
+    - Verification: `./mvnw test -pl ap-module-agent -Dtest=AgentDuplicateTest`
+    - *需求：R2-9*
+  - 3.3 实现 Agent 导出与导入
+    - Scope:
+      - `GET /api/v1/agents/{id}/export`：序列化为 JSON，tool_bindings 含 source locator（source_id / source_name / source_url）
+      - `POST /api/v1/agents/import`：解析 JSON，工具匹配按优先级 source_id → source_url+tool_name → source_name+tool_name → unresolved
+      - 返回 `unresolved_refs` 列表
+    - Definition of Done:
+      - 导出 JSON 包含完整 tool_bindings + source locator
+      - 导入往返一致（导出→导入→导出，两次 JSON 逻辑等价）
+      - 无法匹配的工具标记 unresolved
+      - 单元测试覆盖四级匹配 + 格式校验
+    - Acceptance Criteria:
+      - Given Agent 绑定 MCP 工具 "list_buckets"，When 导出，Then JSON 含 source_type/source_id/source_name/source_url/tool_name/tool_schema_snapshot
+      - Given 导入 JSON 中 source_id 不存在但 source_url+tool_name 匹配，When 导入，Then 工具正确绑定
+      - Given 导入 JSON 中工具无法匹配，When 导入，Then 响应含 `unresolved_refs: [{tool_name, source_type, reason}]`
+      - Given 格式错误的 JSON，When 导入，Then 返回 400 AGENT_IMPORT_INVALID
+    - Verification: `./mvnw test -pl ap-module-agent -Dtest=AgentExportImportTest`
+    - *需求：R2-11, R2-12, §3.9.1*
+  - 3.4 实现 Agent 版本管理
+    - Scope:
+      - `GET /api/v1/agents/{id}/versions`：版本列表
+      - `POST /api/v1/agents/{id}/versions/{vid}/rollback`：恢复快照到草稿
+      - 版本号规则：首次 v1.0.0、默认 patch+1、回滚后基于最高版本号
+      - `has_unpublished_changes` 标记（编辑已发布 Agent 时设为 true）
+    - Definition of Done:
+      - 版本列表按 published_at 倒序返回
+      - 回滚后 Agent 配置恢复为目标版本快照，`has_unpublished_changes=true`
+      - 并发发布由数据库唯一约束拒绝
+      - 单元测试覆盖版本号生成规则
+    - Acceptance Criteria:
+      - Given Agent 已发布 v1.0.0，When 编辑配置，Then `has_unpublished_changes=true`
+      - Given 当前最高版本 v1.0.2，When 回滚到 v1.0.0 后再发布，Then 新版本为 v1.0.3
+      - Given 并发发布相同版本号，When 后提交的事务执行，Then 返回 409 ASSET_VERSION_CONFLICT
+    - Verification: `./mvnw test -pl ap-module-agent -Dtest=AgentVersionTest`
+    - *需求：R3-8, R3-9, §3.5.3*
+
+---
+
+- 1. 对话引擎（ap-module-chat）
+  - 4.1 实现会话管理
+    - Scope:
+      - `POST /api/v1/chat/sessions`（绑定 agent_id）、`GET` 列表、`GET /{id}` 详情含消息历史、`DELETE /{id}/messages` 清空消息
+    - Definition of Done:
+      - 创建会话后可查询到，消息历史按 created_at 升序
+      - 清空消息后历史为空但 session 保留
+      - 集成测试覆盖 CRUD
+    - Acceptance Criteria:
+      - Given agent_id 有效，When 创建会话，Then 返回 201 + session_id
+      - Given 会话含 5 条消息，When 清空消息，Then 消息数为 0 但会话仍可查询
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=ChatSessionTest`
+    - *需求：R1-1, R1-12*
+  - 4.2 集成 Spring AI ChatClient
+    - Scope:
+      - 调用 `ModelRegistry.buildChatClient(modelId)` 获取 ChatClient
+      - 流式推理：ChatClient 流式接口返回 token stream
+      - 封装为内部 `LlmStreamService`，返回 `Iterator<LlmChunk>`（含 token / tool_call / finish）
+    - Definition of Done:
+      - `LlmStreamService` 可被 ChatOrchestrator 调用
+      - WireMock 模拟 OpenAI 流式接口的集成测试通过
+    - Acceptance Criteria:
+      - Given 有效 model_id，When 调用 LlmStreamService.stream()，Then 逐个返回 LlmChunk
+      - Given 无效 model_id，When 调用，Then 抛出 BizException(CHAT_MODEL_ERROR)
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=LlmStreamServiceTest`
+    - *需求：R2-3, §2.8*
+  - 4.3 实现 SSE 事件构建与推送
+    - Scope:
+      - `SseEventBuilder`：按 §3.8.1 构建全部 8 种事件类型（message_start / token / tool_call_start / tool_call_end / citation / step_limit / message_end / error / heartbeat）
+      - 每个事件含 `id`（evt_xxxxx）、`event` 类型、`data` JSON
+      - `token` 事件 `seq` 字段单调递增
+      - `heartbeat` 每 15s 自动推送
+    - Definition of Done:
+      - 所有 8 种事件类型有对应构建方法
+      - 单元测试验证每种事件的 JSON 格式和字段完整性
+      - seq 单调递增测试通过
+    - Acceptance Criteria:
+      - Given SseEventBuilder，When 构建 token 事件，Then data 含 delta/seq/request_id/message_id/timestamp
+      - Given 连续构建 100 个 token 事件，When 检查 seq，Then 严格单调递增
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=SseEventBuilderTest`
+    - *需求：§3.8.1*
+  - 4.4 实现 ChatOrchestrator 核心循环
+    - Scope:
+      - `ChatOrchestrator.streamReply(session, request, emitter)`
+      - 构建上下文：system_prompt + 匹配 Skill 注入 + 历史消息（从 DB 加载）
+      - 主循环 step=1..max_steps：调用 LLM → 处理 token stream → 判断 finish/tool_call
+      - LLM 返回 finish → 发送 `message_end` + break
+      - LLM 返回 tool_call → 发送 `tool_call_start`，转交 ToolDispatcher，注入结果继续循环
+    - Definition of Done:
+      - 纯文本对话（无工具调用）的完整流程可通过
+      - 带工具调用的多步循环可通过
+      - WireMock 集成测试验证完整事件序列
+    - Acceptance Criteria:
+      - Given 纯文本问答，When 发送消息，Then 收到 message_start → token* → message_end
+      - Given LLM 返回 tool_call，When 处理，Then 收到 tool_call_start → tool_call_end → token* → message_end
+      - Given LLM 中途返回错误，When 推理失败，Then 收到 error 事件（recoverable:false），消息 status=incomplete
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=ChatOrchestratorTest`
+    - *需求：R1-3, R1-4, §3.4*
+  - 4.5 实现 ToolDispatcher
+    - Scope:
+      - 接收 `tool_call`（tool_name + arguments），路由到 builtin / MCP / knowledge 工具
+      - 内置工具直接调用 Java 方法
+      - MCP 工具转发到远端（依赖任务 7.3）
+      - 知识库工具调用 `KnowledgeBaseService.search()`（依赖任务 8.3）
+      - 工具失败：构建错误结果注入上下文，交 LLM 自行决策，不中断流
+    - Definition of Done:
+      - 三种来源工具均可正确路由
+      - 工具失败返回错误 ToolResult 而非抛异常
+      - 单元测试覆盖路由逻辑 + 失败处理
+    - Acceptance Criteria:
+      - Given tool_name 属于 builtin，When 调度，Then 调用对应 Java 方法
+      - Given tool_name 属于 mcp source_id=xxx，When 调度，Then 转发到该 MCP
+      - Given 工具调用超时，When 失败，Then 返回 ToolResult(status=error, message=...)，SSE 发送 tool_call_end(status=error)
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=ToolDispatcherTest`
+    - *需求：R1-5, §3.4*
+  - 4.6 实现步骤控制与继续执行
+    - Scope:
+      - 步骤计数器在 ChatOrchestrator 主循环中递增
+      - step > max_steps → 发送 `step_limit` 事件，保存 `chat_session_states`（context_snapshot + step_count + tool_cache）
+      - `POST /api/v1/chat/sessions/{id}/continue`：加载 session_state，步骤累加（不重置），重新打开 SseEmitter 流
+    - Definition of Done:
+      - step_limit 事件包含 session_state_id
+      - session_state 持久化到 DB（expires_at = now+1h）
+      - continue 恢复后步骤从上次断点累加
+      - 集成测试完整覆盖 step_limit → continue 流程
+    - Acceptance Criteria:
+      - Given max_steps=2 且 LLM 每步都调用工具，When 执行到第 3 步，Then 收到 step_limit 事件 + session_state_id
+      - Given session_state_id，When POST /continue，Then 从第 3 步继续推理
+      - Given session_state 已过期（1h），When POST /continue，Then 返回 404
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=StepControlTest`
+    - *需求：R1-13, §3.8.2*
+  - 4.7 实现消息重新生成
+    - Scope:
+      - `POST /api/v1/chat/sessions/{id}/messages/{msg_id}/regenerate`
+      - 替换原助手消息，重新发起 SSE 流
+    - Definition of Done:
+      - 原消息内容被新生成内容替换
+      - SSE 流正常推送
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 原消息 content="旧回答"，When regenerate，Then 消息 content 更新为新内容
+      - Given regenerate 完成后，When 查询消息历史，Then 该位置只有一条消息（非追加）
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=RegenerateTest`
+    - *需求：R1-10*
+  - 4.8 实现 Agent 切换
+    - Scope:
+      - `PUT /api/v1/chat/sessions/{id}/agent`：修改 current_agent_id
+      - 插入 separator 消息（role=separator, content="— 已切换到 {新Agent} —"）
+      - 新 Agent 从空上下文开始
+    - Definition of Done:
+      - 切换后历史消息保留可查
+      - 新 Agent 对话不携带旧上下文
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 会话已有 3 条消息，When 切换 Agent，Then 消息历史末尾出现 separator
+      - Given 切换后发送新消息，When 构建上下文，Then 仅包含 separator 之后的消息
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=AgentSwitchTest`
+    - *需求：R1-14*
+  - 4.9 实现 SSE 幂等
+    - Scope:
+      - 客户端在请求 Body 中携带 `idempotency_key`（UUID）
+      - 服务端将 `idempotency_key` + body SHA-256 哈希存入 Redis（key 格式 `idem:{session_id}:{key}`，TTL 5min）
+      - 相同 key + 相同 body → 返回同一 message_id
+      - 相同 key + 不同 body → 返回 409 CHAT_IDEMPOTENCY_CONFLICT
+    - Definition of Done:
+      - Redis 存储 `{message_id, body_hash, status}`
+      - 契约测试覆盖两种场景
+    - Acceptance Criteria:
+      - Given 相同 idempotency_key + 相同 body，When 重复发送，Then 返回相同 message_id，不创建新消息
+      - Given 相同 idempotency_key + 不同 body，When 重复发送，Then 返回 409 CHAT_IDEMPOTENCY_CONFLICT
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=IdempotencyTest`
+    - *需求：§3.8.3*
+  - 4.10 实现 SSE 断线重连
+    - Scope:
+      - 每个 SSE 事件分配 `id: evt_xxxxx`
+      - 事件缓存到 Redis（key `sse:{message_id}:events`，TTL 5min）
+      - 客户端携带 `Last-Event-ID` 重连，服务端从该 event 之后续传
+      - 客户端断开后服务端继续生成（不中断 LLM 推理）
+      - 消息持久化时机：message_end / error / step_limit 时写入 DB
+    - Definition of Done:
+      - 断线重连后从正确位置续传
+      - 客户端断开后，消息最终仍被持久化
+      - 契约测试通过
+    - Acceptance Criteria:
+      - Given 客户端收到 evt_00005 后断开，When 携带 Last-Event-ID=evt_00005 重连，Then 从 evt_00006 继续推送
+      - Given 客户端断开，When 服务端完成生成，Then 消息 status=complete 已持久化到 DB
+      - Given 事件缓存已过期，When 重连，Then 返回已持久化的完整消息
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=SseReconnectTest`
+    - *需求：§3.8.3, §3.8.4*
+
+---
+
+- 1. 工具与模型注册表（ap-common）
+  - 5.1 实现 ToolRegistry
+    - Scope:
+      - `ToolRegistry` 接口：`getAvailableTools(userId)`、`getToolById(toolId)`、`resolveAgentTools(config)`、`refreshMcpTools(mcpId)`、`registerBuiltinTool(def)`
+      - `ToolDefinition` 数据结构（§3.9.1 schema）
+      - 三种来源注册：内置工具（启动时扫描）、MCP 工具（从 DB 加载 tools_discovered）、知识库检索（固定 schema）
+      - `resolveAgentTools()`：校验存在性 + 写入 tool_schema_snapshot
+    - Definition of Done:
+      - 应用启动后内置工具自动注册
+      - MCP 添加后工具自动注册
+      - Agent 保存时 schema 快照正确写入
+      - 单元测试覆盖三种来源 + MCP 启用/禁用 + 无效工具校验
+    - Acceptance Criteria:
+      - Given MCP enabled=false，When resolveAgentTools 含该 MCP 工具，Then 抛出 BizException
+      - Given 内置工具 web_search，When getToolById("builtin_web_search")，Then 返回正确 ToolDefinition
+      - Given Agent config 含 MCP 工具，When resolveAgentTools，Then agent_tool_bindings.tool_schema_snapshot 非空
+    - Verification: `./mvnw test -pl ap-common/common-core -Dtest=ToolRegistryTest`
+    - *需求：§3.9.1*
+  - 5.2 实现 ModelRegistry
+    - Scope:
+      - `ModelRegistry` 接口：`getAllModels(userId)`、`getById(modelId)`、`buildChatClient(model)`
+      - 合并 `builtin_models` + 当前用户 `custom_models` 返回
+      - `buildChatClient()`：根据模型配置构建 Spring AI ChatClient
+      - 删除自定义模型时批量 UPDATE agents SET model_id=defaultId WHERE model_id=deletedId
+    - Definition of Done:
+      - 查询返回内置+自定义模型合并列表
+      - 删除模型后受影响 Agent 自动重置
+      - 单元测试通过
+    - Acceptance Criteria:
+      - Given 用户有 2 个自定义模型 + 3 个内置模型，When getAllModels，Then 返回 5 个
+      - Given 自定义模型绑定 3 个 Agent，When 删除该模型，Then 3 个 Agent 的 model_id 改为默认
+    - Verification: `./mvnw test -pl ap-common/common-core -Dtest=ModelRegistryTest`
+    - *需求：R9-1, R9-7, §3.9.2*
+
+---
+
+- 1. Skill 模块（ap-module-asset）
+  - 6.1 实现 Skill CRUD
+    - Scope:
+      - `SkillController`：POST / GET(list) / GET(detail) / PUT / DELETE
+      - `SkillService`：创建（YAML/Markdown 格式校验）、分页+搜索查询、更新、软删除（依赖检查）
+      - `GET /api/v1/skills/{id}/export`：JSON 导出
+    - Definition of Done:
+      - 格式错误的 Skill 拒绝创建
+      - 删除时检查 `asset_references`（是否被 Agent 引用），有依赖返回 ASSET_DELETE_CONFLICT
+      - 单元测试覆盖格式校验；集成测试覆盖 CRUD + 依赖冲突
+    - Acceptance Criteria:
+      - Given 无效 YAML 格式 Skill 内容，When 创建，Then 返回 400
+      - Given Skill 被 Agent A 引用，When 删除 Skill，Then 返回 409 ASSET_DELETE_CONFLICT + 引用方列表
+      - Given 用户确认删除（force=true），When 再次请求，Then 解除绑定 + 软删除
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=SkillCrudTest`
+    - *需求：R4-1 ~ R4-7*
+
+---
+
+- 1. MCP 模块（ap-module-asset）
+  - 7.1 实现 MCP CRUD
+    - Scope:
+      - `McpController`：POST / GET(list) / GET(detail) / PUT / DELETE / PUT toggle
+      - `McpService`：创建（自动验证连接，依赖 7.2）、查询（auth_headers 调用 `CredentialStore.mask()`）、更新、软删除、启用/禁用
+    - Definition of Done:
+      - 创建时自动调用连接测试（MVP 可异步或同步）
+      - 列表接口 auth_headers 脱敏
+      - 删除时检查 `agent_tool_bindings`（source_type=mcp）依赖
+      - 集成测试覆盖 CRUD + 依赖冲突
+    - Acceptance Criteria:
+      - Given MCP auth_headers = "Bearer secret"，When 查询列表，Then 显示 "Bear****ret"
+      - Given MCP 被 Agent 的 tool_bindings 引用，When 删除，Then 返回 409
+      - Given MCP enabled=true，When toggle(enabled=false)，Then ToolRegistry 中该 MCP 工具不可用
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=McpCrudTest`
+    - *需求：R6-1 ~ R6-7*
+  - 7.2 实现 MCP 连接测试与工具发现
+    - Scope:
+      - `POST /api/v1/mcps/{id}/test`：SSE / Streamable HTTP 两种协议连接验证
+      - `POST /api/v1/mcps/{id}/refresh-tools`：调用 MCP server `tools/list`，更新 `mcps.tools_discovered` JSONB
+      - 刷新后同步调用 `ToolRegistry.refreshMcpTools(mcpId)`
+    - Definition of Done:
+      - 两种协议连接测试均可工作
+      - tools_discovered 存储完整工具列表（name + description + parameters schema）
+      - 连接失败返回 `MCP_CONNECTION_FAILED`
+      - 集成测试（WireMock 模拟 MCP Server）通过
+    - Acceptance Criteria:
+      - Given 有效 MCP URL，When test，Then 返回 `{status:"ok", tools_count:3, tools:[...]}`
+      - Given 无效 URL，When test，Then 返回 422 MCP_CONNECTION_FAILED
+      - Given refresh-tools 完成，When 查询 MCP detail，Then tools_discovered 含完整工具 schema
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=McpConnectionTest`
+    - *需求：R6-4, R6-5, R6-8*
+  - 7.3 实现 MCP 工具运行时调用
+    - Scope:
+      - `ToolDispatcher` 中 MCP 工具路由：通过 SSE / Streamable HTTP 转发 tool_call 到远端 MCP server
+      - Resilience4j 重试：固定 2s 间隔，最多 2 次，超时 30s
+      - 连续 3 次失败标记 `connection_status=error`
+    - Definition of Done:
+      - MCP 工具调用正确转发参数并返回结果
+      - 重试逻辑按配置执行
+      - 连续失败后标记 error
+      - 单元测试覆盖重试 + 熔断
+    - Acceptance Criteria:
+      - Given MCP server 正常，When 调用工具，Then 返回结果
+      - Given MCP server 首次超时、第二次成功，When 调用，Then 重试后成功
+      - Given MCP server 连续 3 次失败，When 检查 MCP，Then connection_status=error
+    - Verification: `./mvnw test -pl ap-module-chat -Dtest=McpToolCallTest`
+    - *需求：R6-8, §6.4*
+
+---
+
+- 1. 知识库模块（ap-module-asset）
+  - 8.1 实现知识库 CRUD
+    - Scope:
+      - `KnowledgeController`：POST / GET(list) / GET(detail) / PUT / DELETE
+      - 知识库 visibility 最高为 group_edit（MVP stub 下不校验此限制，加 TODO 注释）
+      - 删除时检查 `asset_references` + `agent_tool_bindings`（source_type=knowledge）依赖
+      - 删除时触发异步任务清理全部 kb_documents + kb_chunks
+    - Definition of Done:
+      - CRUD 正常工作
+      - 删除触发清理任务（RabbitMQ 消息发送）
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 知识库被 Agent 引用，When 删除，Then 返回 409 ASSET_DELETE_CONFLICT
+      - Given 知识库无引用，When 删除，Then 软删除 + 发送清理消息
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=KnowledgeBaseCrudTest`
+    - *需求：R8-1, R8-2*
+  - 8.2 实现知识库文档上传
+    - Scope:
+      - `POST /api/v1/knowledge-bases/{id}/documents`：multipart 上传
+      - 写入 `files` 表（source=knowledge）+ `kb_documents` 表（file_id FK）
+      - MVP 中 scan_status 直接设为 clean（跳过 ClamAV），index_status 初始为 pending
+      - 发送 RabbitMQ 消息触发异步索引
+      - 文档列表 / 文档删除端点
+    - Definition of Done:
+      - 上传后 files + kb_documents 记录正确
+      - RabbitMQ 索引消息已发送
+      - 集成测试（Testcontainers PG + MinIO）通过
+    - Acceptance Criteria:
+      - Given 上传 PDF 文档，When 成功，Then 返回 202 + document_id + file_id + scan_status=clean + index_status=pending
+      - Given 文件大小 > 50MB，When 上传，Then 返回 413 FILE_SIZE_EXCEEDED
+      - Given 文件类型为 .exe，When 上传，Then 返回 400 FILE_TYPE_REJECTED
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=KbDocumentUploadTest`
+    - *需求：R8-3, §5.2.5*
+  - 8.3 实现知识库异步索引流水线
+    - Scope:
+      - `KnowledgeIndexer`：监听 `kb.index` 队列
+      - 流程：读取文件 → Tika 解析内容 → 按配置分片（默认 512 token / 128 overlap）→ 调用 Embedding API → 写入 `kb_chunks`
+      - 状态流转：pending → indexing → indexed / failed
+      - 失败重试（最多 3 次），最终失败写 index_error
+      - `POST /{doc_id}/reindex`：重新投递索引任务
+    - Definition of Done:
+      - 索引完成后 kb_chunks 有正确记录
+      - index_status / chunk_count / doc_count 正确更新
+      - 失败后 index_error 有错误信息
+      - 集成测试（Testcontainers PG+pgvector + WireMock Embedding）通过
+    - Acceptance Criteria:
+      - Given 上传 10 页 PDF，When 索引完成，Then kb_chunks 有多条记录且 embedding 非空
+      - Given Embedding API 不可用，When 重试 3 次后仍失败，Then index_status=failed + index_error 写入
+      - Given index_status=failed，When reindex，Then 重新进入 indexing 流程
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=KnowledgeIndexerTest`
+    - *需求：R8-8, §5.2.5*
+  - 8.4 实现语义检索
+    - Scope:
+      - `POST /api/v1/knowledge-bases/{id}/search`：query → Embedding → pgvector HNSW 近似搜索 → top_k 结果
+      - 作为 ToolRegistry 中知识库检索工具的底层实现
+      - 返回 `[{content, score, document_name, page}]`
+    - Definition of Done:
+      - 检索返回相关度排序结果
+      - ToolDispatcher 可通过 ToolRegistry 调用此检索
+      - 集成测试（Testcontainers pgvector）通过
+    - Acceptance Criteria:
+      - Given 知识库含 "Spring Boot 配置" 相关文档，When 搜索 "如何配置数据源"，Then 返回相关 chunk 且 score > 0
+      - Given top_k=3，When 搜索，Then 最多返回 3 条结果
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=KbSearchTest`
+    - *需求：R8-6, R8-7*
+  - 8.5 实现文档删除与清理
+    - Scope:
+      - `DELETE /api/v1/knowledge-bases/{id}/documents/{doc_id}`
+      - 发送 RabbitMQ 异步清理任务：删除 `kb_chunks` → 删除 MinIO 文件 → 标记 `files.status=deleted`
+      - 更新 `knowledge_bases.doc_count` 和 `total_size_bytes`
+    - Definition of Done:
+      - 删除后 kb_chunks 无残留
+      - MinIO 文件已删除
+      - doc_count 正确递减
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 文档有 50 个 chunks，When 删除文档，Then kb_chunks 中该 document_id 的记录全部清除
+      - Given 删除前 doc_count=5，When 删除 1 个文档，Then doc_count=4
+    - Verification: `./mvnw test -pl ap-module-asset -Dtest=KbDocumentDeleteTest`
+    - *需求：R8-5, §5.2.5*
+
+---
+
+- 1. 文件模块（ap-module-file）
+  - 9.1 实现文件上传
+    - Scope:
+      - `POST /api/v1/files/upload`：multipart 接收
+      - 类型白名单校验（pdf/doc/docx/xls/xlsx/ppt/pptx/txt/md/jpg/png/gif/webp）
+      - 大小校验（≤50MB）
+      - MIME 校验（Tika 检测真实类型 vs 扩展名一致性）
+      - 写入 MinIO（按 source 分路径），写入 `files` 表
+      - MVP 中 scan_status 直接设为 clean
+    - Definition of Done:
+      - 合法文件上传成功并存入 MinIO
+      - 非法类型/超限文件被拒绝
+      - 单元测试覆盖白名单和大小；集成测试覆盖 MinIO 写入
+    - Acceptance Criteria:
+      - Given 10MB PDF 文件，When 上传，Then 返回 200 + file_id + scan_status=clean
+      - Given 60MB 文件，When 上传，Then 返回 413 FILE_SIZE_EXCEEDED
+      - Given .exe 文件，When 上传，Then 返回 400 FILE_TYPE_REJECTED
+      - Given .jpg 文件但实际内容为 .exe，When Tika 校验，Then 返回 400 FILE_TYPE_REJECTED
+    - Verification: `./mvnw test -pl ap-module-file -Dtest=FileUploadTest`
+    - *需求：R1-6, R12-4, R12-5*
+  - 9.2 实现文件下载 Token 签发
+    - Scope:
+      - `POST /api/v1/files/{id}/download-token`：校验用户权限 → 生成 64 字节 SecureRandom Token → 写入 `file_download_tokens`
+      - `POST /api/v1/files/{id}/preview-token`：类似，token_type=preview
+      - 文件已过期返回 410 FILE_EXPIRED
+    - Definition of Done:
+      - Token 86 字符（Base64URL 编码）
+      - Token 绑定 file_id + user_id + session_id
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 有效文件，When 请求 download-token，Then 返回 200 + download_url 含 86 字符 token
+      - Given 文件 expires_at < now()，When 请求 token，Then 返回 410 FILE_EXPIRED
+    - Verification: `./mvnw test -pl ap-module-file -Dtest=FileTokenTest`
+    - *需求：R1-9, §3.7.4*
+  - 9.3 实现文件下载与预览
+    - Scope:
+      - `GET /api/v1/files/d/{token}`：校验 token 有效性 → 标记 used=true → MinIO getObject → 流式代理响应（Content-Disposition: attachment）
+      - `GET /api/v1/files/p/{token}`：预览，不标记 used（可重复），Content-Disposition: inline
+      - 不要求 Bearer JWT（Scheme B）
+    - Definition of Done:
+      - download token 一次性使用
+      - preview token 24h 内可重复使用
+      - 无效/已使用/已过期 token 返回 403
+      - 集成测试（Testcontainers MinIO）通过
+    - Acceptance Criteria:
+      - Given 有效 download token，When 下载，Then 返回文件流 + Content-Disposition: attachment
+      - Given 同一 download token，When 第二次下载，Then 返回 403 FILE_LINK_EXPIRED
+      - Given preview token，When 多次预览，Then 均返回 200
+      - Given 已过期 token，When 下载，Then 返回 403 FILE_LINK_EXPIRED
+    - Verification: `./mvnw test -pl ap-module-file -Dtest=FileDownloadTest`
+    - *需求：R1-7, R1-9, §3.7.4*
+  - 9.4 实现文件过期清理
+    - Scope:
+      - `FileCleaner`：`@Scheduled` 定时任务（每小时），扫描 `files.expires_at < now() AND status='active'`
+      - 标记 `status=expired`，删除 MinIO 对象
+      - 对话文件 expires_at = created_at + 30天，知识库/资产文件 expires_at = NULL（不过期）
+    - Definition of Done:
+      - 定时任务正确扫描并清理过期文件
+      - 未过期文件不受影响
+      - 集成测试（Clock mock）通过
+    - Acceptance Criteria:
+      - Given 文件 expires_at = 29天后，When 清理任务运行，Then 文件不受影响
+      - Given 文件 expires_at = 昨天，When 清理任务运行，Then status=expired + MinIO 对象已删除
+      - Given 知识库文件 expires_at=NULL，When 清理任务运行，Then 文件不受影响
+    - Verification: `./mvnw test -pl ap-module-file -Dtest=FileCleanerTest`
+    - *需求：R1-8*
+
+---
+
+- 1. 模型配置（跨模块）
+  - 10.1 实现内置模型查询
+    - Scope:
+      - `GET /api/v1/models/builtin`：查询 `builtin_models` 表（enabled=true）
+      - `GET /api/v1/models/all`：合并 builtin + 当前用户 custom_models
+    - Definition of Done:
+      - Flyway 种子数据含至少 1 个默认模型（is_default=true）
+      - 合并列表正确区分两类来源
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 3 个 builtin + 2 个 custom 模型，When GET /all，Then 返回 5 个
+      - Given builtin 中 is_default=true 的模型，When 查询，Then 恰好 1 个
+    - Verification: `./mvnw test -pl ap-module-agent -Dtest=ModelQueryTest`
+    - *需求：R9-1*
+  - 10.2 实现自定义模型 CRUD
+    - Scope:
+      - POST（验证 API 连通性 → 保存）/ GET list / PUT（重新验证）/ DELETE（重置受影响 Agent）
+      - API Key 通过 `CredentialStore` 存储和脱敏
+    - Definition of Done:
+      - 连通性验证失败返回 422 MODEL_CONNECTION_FAILED
+      - 删除后受影响 Agent model_id 重置为默认
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 有效 API URL + Key，When 创建模型，Then 连通性验证通过 + 返回 201
+      - Given 无效 API URL，When 创建模型，Then 返回 422 MODEL_CONNECTION_FAILED
+      - Given 模型绑定 3 个 Agent，When 删除模型，Then 3 个 Agent model_id = 默认模型
+      - Given 查询模型列表，When 检查 api_key 字段，Then 显示脱敏值
+    - Verification: `./mvnw test -pl ap-module-agent -Dtest=CustomModelTest`
+    - *需求：R9-3 ~ R9-8*
+
+---
+
+- 1. 市场模块（ap-module-market）
+  - 11.1 实现资产发布
+    - Scope:
+      - `POST /api/v1/market/publish`：创建 `asset_versions`（config_snapshot 含完整 tool_bindings + tool_schema_snapshot）+ 创建/更新 `market_items`
+      - 首次发布：资产 status → published，创建 market_item(status=listed)
+      - MCP 发布时 config_snapshot 过滤 `auth_headers_enc`
+    - Definition of Done:
+      - asset_versions 记录正确，config_snapshot 内容完整
+      - market_items 记录正确
+      - MCP 的 config_snapshot 不含凭据
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given draft Agent，When 发布，Then asset_versions 有 v1.0.0 记录 + market_items.status=listed
+      - Given MCP 发布，When 检查 config_snapshot，Then 不包含 auth_headers_enc
+      - Given Agent config_snapshot，When 检查 tool_bindings，Then 每个绑定含 tool_schema_snapshot
+    - Verification: `./mvnw test -pl ap-module-market -Dtest=PublishTest`
+    - *需求：R3-1 ~ R3-3, §3.5*
+  - 11.2 实现下架与可见性修改
+    - Scope:
+      - `PUT /api/v1/market/items/{id}/visibility`
+      - 下架：资产 status 保持 published，visibility → private，market_item.status → unlisted
+      - 再次公开：修改 visibility，复用原 market_item（status → listed）
+    - Definition of Done:
+      - 下架后市场搜索不返回该资产
+      - 再次公开后市场搜索可发现
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 已发布 Agent，When 下架（visibility=private），Then 资产 status 仍为 published + market_item.status=unlisted
+      - Given 下架后的 Agent，When 再次设为 public，Then 复用原 market_item + status=listed
+      - Given 下架后，When 市场搜索，Then 不返回该 Agent
+    - Verification: `./mvnw test -pl ap-module-market -Dtest=UnlistTest`
+    - *需求：R3-2, §3.5*
+  - 11.3 实现市场浏览与搜索
+    - Scope:
+      - `GET /api/v1/market/items`：type + category + search（GIN 全文搜索）+ tags + sort_by + 分页
+      - `GET /api/v1/market/items/{id}`：详情（读 config_snapshot）
+      - `GET /api/v1/market/featured`：首页精选
+    - Definition of Done:
+      - 全文搜索正确命中名称/描述
+      - 分页、排序正确
+      - 详情返回 config_snapshot 内容
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 市场有 "Excel处理助手" Agent，When 搜索 "Excel"，Then 返回该 Agent
+      - Given type=agent + category=office，When 筛选，Then 仅返回匹配项
+      - Given page=1 + page_size=10，When 总数为 25，Then 返回 10 条 + total=25
+    - Verification: `./mvnw test -pl ap-module-market -Dtest=MarketSearchTest`
+    - *需求：R3-4, R3-5, R5-1, R5-2, R7-1 ~ R7-3*
+  - 11.4 实现收藏与评价
+    - Scope:
+      - `POST/DELETE /api/v1/market/items/{id}/favorite`：收藏/取消，更新 favorite_count
+      - `POST /api/v1/market/items/{id}/reviews`：评价（rating 1-5 + comment），更新 avg_rating / review_count
+      - `GET /api/v1/market/items/{id}/reviews`：评价列表
+    - Definition of Done:
+      - 收藏/取消后计数正确
+      - 评分后 avg_rating 正确计算
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given favorite_count=10，When 收藏，Then favorite_count=11
+      - Given 取消收藏，When 再次取消，Then 幂等（不报错）
+      - Given 评分 [5,4,3]，When 计算 avg_rating，Then = 4.0
+    - Verification: `./mvnw test -pl ap-module-market -Dtest=FavoriteReviewTest`
+    - *需求：R3-7, R5-5, R5-6*
+  - 11.5 实现市场资产导入
+    - Scope:
+      - `POST /api/v1/market/items/{id}/import`
+      - 读取 config_snapshot → 创建资产副本（owner=当前用户, status=draft）→ use_count++
+      - MCP 导入不含凭据，需用户自行填写 auth_config
+    - Definition of Done:
+      - 导入创建独立副本，与原资产无关联
+      - use_count 正确递增
+      - MCP 副本无 auth_headers
+      - 集成测试通过
+    - Acceptance Criteria:
+      - Given 市场 Agent，When 导入，Then 新建 Agent(owner=当前用户, status=draft)
+      - Given 导入后修改副本，When 查询原资产，Then 不受影响
+      - Given 市场 MCP，When 导入，Then 副本 auth_headers 为空
+      - Given 导入前 use_count=5，When 导入，Then use_count=6
+    - Verification: `./mvnw test -pl ap-module-market -Dtest=MarketImportTest`
+    - *需求：R5-3, R7-4, R7-5*
+
+---
+
+- 1. 横切关注点
+  - 12.1 OpenAPI 接口文档生成
+    - Scope:
+      - 引入 SpringDoc OpenAPI 依赖
+      - 所有 Controller 添加 `@Operation` / `@ApiResponse` / `@Tag` 注解
+      - 生成 Swagger UI 可访问（`/swagger-ui.html`）
+      - 错误响应统一引用 `ErrorResponse` schema
+    - Definition of Done:
+      - 应用启动后 `/swagger-ui.html` 可访问
+      - 所有端点在 Swagger UI 中可见且参数正确
+    - Acceptance Criteria:
+      - Given 应用启动，When 访问 /swagger-ui.html，Then 页面加载成功
+      - Given Agent CRUD 端点，When 查看 OpenAPI，Then 请求/响应 schema 完整
+    - Verification: `curl http://localhost:8080/v3/api-docs` 返回有效 JSON
+    - *需求：§4.1*
+  - 12.2 API 错误格式一致性契约测试
+    - Scope:
+      - 编写 MockMvc 契约测试：所有 4xx/5xx 响应均符合 §6.2 统一错误格式
+      - 覆盖常见错误场景：400 校验失败、404 不存在、409 冲突、413 超限、422 业务校验失败
+    - Definition of Done:
+      - 契约测试覆盖至少 6 种错误码
+      - 所有错误响应含 code、message、request_id
+    - Acceptance Criteria:
+      - Given 任意 4xx/5xx 响应，When 解析 JSON，Then 结构为 `{"error":{"code":"...","message":"...","details":{...},"request_id":"..."}}`
+    - Verification: `./mvnw test -Dtest=ErrorFormatContractTest`
+    - *需求：§6.2*
+  - 12.3 CI 验证流水线配置
+    - Scope:
+      - 编写 `.github/workflows/ci.yml`（或 `.gitlab-ci.yml`）
+      - Steps：checkout → Java 21 setup → Docker Compose infra up → `./mvnw verify` → 产物归档
+      - 失败时上传测试报告
+    - Definition of Done:
+      - Push 到任意分支触发 CI
+      - CI 通过等价于本地 `./mvnw verify` 通过
+    - Acceptance Criteria:
+      - Given 代码推送，When CI 运行，Then 编译 + 全部测试通过
+      - Given 测试失败，When CI 报告，Then 可查看具体失败用例
+    - Verification: 推送代码后查看 CI 状态
+    - *需求：§2.5*
+
+---
+
+- 1. 端到端冒烟验证
+  - 13.1 核心对话链路
+    - Scope:
+      - 单个集成测试覆盖：创建 Agent（绑定内置工具 + Skill + 知识库）→ 创建会话 → 发送消息 → SSE 流式响应（含工具调用）→ 消息持久化 → 查询历史
+    - Definition of Done:
+      - 全栈 Testcontainers（PG + Redis + RabbitMQ + MinIO）+ WireMock（LLM）
+      - 测试通过
+    - Acceptance Criteria:
+      - Given 完整配置的 Agent，When 发送 "帮我分析数据"，Then 收到 message_start → tool_call_start → tool_call_end → token* → message_end
+      - Given 对话完成，When 查询历史，Then 含用户消息 + 助手消息 + 工具调用记录
+    - Verification: `./mvnw test -Dtest=E2eChatFlowTest`
+    - *需求：R1, R2*
+  - 13.2 市场发布与导入链路
+    - Scope:
+      - 单个集成测试覆盖：创建 Agent → 发布到市场 → 搜索发现 → 导入副本 → 使用副本对话
+    - Definition of Done:
+      - 全流程无报错，数据一致
+      - 测试通过
+    - Acceptance Criteria:
+      - Given 发布后，When 市场搜索，Then 可发现
+      - Given 导入副本，When 创建会话并发送消息，Then 对话正常
+    - Verification: `./mvnw test -Dtest=E2eMarketFlowTest`
+    - *需求：R3, R5*
+  - 13.3 MCP 工具全链路
+    - Scope:
+      - 单个集成测试覆盖：添加 MCP → 测试连接 → 发现工具 → Agent 绑定 MCP 工具 → 对话中调用 → 禁用后不可调用
+    - Definition of Done:
+      - WireMock 模拟 MCP Server
+      - 全流程测试通过
+    - Acceptance Criteria:
+      - Given Agent 绑定 MCP 工具，When 对话触发工具调用，Then MCP server 收到请求并返回结果
+      - Given MCP 被禁用，When 对话触发工具调用，Then 工具不可用，LLM 收到错误信息
+    - Verification: `./mvnw test -Dtest=E2eMcpFlowTest`
+    - *需求：R6*
+
