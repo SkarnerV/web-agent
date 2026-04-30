@@ -10,6 +10,10 @@ dist/
 # IDE
 .vscode/
 .idea/
+.classpath
+.project
+.settings/
+.factorypath
 
 # OS
 .DS_Store
