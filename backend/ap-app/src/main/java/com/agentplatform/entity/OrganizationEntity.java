@@ -14,7 +14,7 @@ import java.util.UUID;
 @TableName("organizations")
 public class OrganizationEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private String w3OrgId;

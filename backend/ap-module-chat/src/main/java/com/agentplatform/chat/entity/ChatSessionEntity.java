@@ -14,7 +14,7 @@ import java.util.UUID;
 @TableName("chat_sessions")
 public class ChatSessionEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID userId;

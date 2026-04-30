@@ -18,11 +18,29 @@ public class SseEventCacheService {
     private static final Duration EVENT_CACHE_TTL = Duration.ofMinutes(5);
     private static final String PREFIX = "sse:";
     private static final String SUFFIX = ":events";
+    private static final String SESSION_MSG_PREFIX = "sse:session:";
 
     private final StringRedisTemplate redisTemplate;
 
     public SseEventCacheService(StringRedisTemplate redisTemplate) {
         this.redisTemplate = redisTemplate;
+    }
+
+    /**
+     * Register a session → messageId mapping so reconnection by sessionId can
+     * look up the correct message event stream.
+     */
+    public void registerSessionMessage(String sessionId, String messageId) {
+        String key = SESSION_MSG_PREFIX + sessionId;
+        redisTemplate.opsForValue().set(key, messageId, EVENT_CACHE_TTL);
+    }
+
+    /**
+     * Resolve the current messageId for a given session.
+     * @return messageId or null if no active stream is cached
+     */
+    public String resolveMessageId(String sessionId) {
+        return redisTemplate.opsForValue().get(SESSION_MSG_PREFIX + sessionId);
     }
 
     /**
@@ -42,9 +60,10 @@ public class SseEventCacheService {
 
     /**
      * Retrieve events after a given event ID for reconnection.
+     * If lastEventId is null or empty, returns all cached events.
      *
      * @param messageId   the message identifier
-     * @param lastEventId the last event ID the client received
+     * @param lastEventId the last event ID the client received (null/empty = return all)
      * @return list of cached events after the specified ID
      */
     public List<CachedEvent> getEventsAfter(String messageId, String lastEventId) {
@@ -54,8 +73,9 @@ public class SseEventCacheService {
             return List.of();
         }
 
+        boolean returnAll = (lastEventId == null || lastEventId.isEmpty());
         List<CachedEvent> result = new ArrayList<>();
-        boolean foundLast = false;
+        boolean foundLast = returnAll;
 
         for (String entry : allEntries) {
             String[] parts = entry.split("\\|", 3);

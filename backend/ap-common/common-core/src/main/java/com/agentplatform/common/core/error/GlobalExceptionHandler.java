@@ -4,6 +4,7 @@ import com.agentplatform.common.core.trace.RequestIdContext;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.util.LinkedHashMap;
@@ -37,6 +39,7 @@ public class GlobalExceptionHandler {
             log.warn("[BizException] code={}, msg={}, details={}", code.name(), ex.getMessage(), ex.getDetails());
         }
         return ResponseEntity.status(code.getHttpStatus())
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of(code.name(), ex.getMessage(), ex.getDetails(), RequestIdContext.current()));
     }
 
@@ -92,7 +95,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoHandlerFoundException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(NoHandlerFoundException ex) {
         return ResponseEntity.status(404)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of("NOT_FOUND", "资源不存在", Map.of("path", ex.getRequestURL()),
+                        RequestIdContext.current()));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ErrorResponse> handleNotAcceptable(HttpMediaTypeNotAcceptableException ex) {
+        return ResponseEntity.status(406)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(ErrorResponse.of("NOT_ACCEPTABLE", "不支持请求的 Accept 类型", Map.of(),
                         RequestIdContext.current()));
     }
 
@@ -102,14 +114,24 @@ public class GlobalExceptionHandler {
                 Map.of("max_size_bytes", ex.getMaxUploadSize()));
     }
 
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+    public ResponseEntity<ErrorResponse> handleMultipart(org.springframework.web.multipart.MultipartException ex) {
+        return build(ErrorCode.INVALID_REQUEST, "请求必须为 multipart/form-data 格式",
+                Map.of("hint", ex.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleAny(Exception ex) {
         log.error("[Unhandled] {}", ex.getMessage(), ex);
-        return build(ErrorCode.INTERNAL_ERROR, "服务内部错误", Map.of());
+        return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.getHttpStatus())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR.name(), "服务内部错误", Map.of(),
+                        RequestIdContext.current()));
     }
 
     private ResponseEntity<ErrorResponse> build(ErrorCode code, String message, Map<String, Object> details) {
         return ResponseEntity.status(code.getHttpStatus())
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of(code.name(), message, details, RequestIdContext.current()));
     }
 }

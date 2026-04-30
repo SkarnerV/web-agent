@@ -4,16 +4,16 @@
 -- agents
 CREATE INDEX idx_agents_owner_status ON agents (owner_id, status, deleted_at);
 CREATE INDEX idx_agents_visibility_status ON agents (visibility, status, deleted_at);
-CREATE INDEX idx_agents_fulltext ON agents USING GIN (to_tsvector('simple', concat_ws(' ', name, description)));
+CREATE INDEX idx_agents_fulltext ON agents USING GIN (to_tsvector('simple'::regconfig, coalesce(name, '') || ' ' || coalesce(description, '')));
 
 -- skills
 CREATE INDEX idx_skills_owner_status ON skills (owner_id, status, deleted_at);
 CREATE INDEX idx_skills_visibility_status ON skills (visibility, status, deleted_at);
-CREATE INDEX idx_skills_fulltext ON skills USING GIN (to_tsvector('simple', concat_ws(' ', name, description)));
+CREATE INDEX idx_skills_fulltext ON skills USING GIN (to_tsvector('simple'::regconfig, coalesce(name, '') || ' ' || coalesce(description, '')));
 
 -- mcps
 CREATE INDEX idx_mcps_owner ON mcps (owner_id, deleted_at);
-CREATE INDEX idx_mcps_fulltext ON mcps USING GIN (to_tsvector('simple', concat_ws(' ', name, description)));
+CREATE INDEX idx_mcps_fulltext ON mcps USING GIN (to_tsvector('simple'::regconfig, coalesce(name, '') || ' ' || coalesce(description, '')));
 
 -- chat_sessions / chat_messages
 CREATE INDEX idx_chat_sessions_user ON chat_sessions (user_id, updated_at DESC);
@@ -22,7 +22,7 @@ CREATE INDEX idx_chat_messages_session ON chat_messages (session_id, created_at)
 -- market_items
 CREATE INDEX idx_market_items_type_status ON market_items (asset_type, status, visibility);
 CREATE INDEX idx_market_items_tags ON market_items USING GIN (tags);
-CREATE INDEX idx_market_items_fulltext ON market_items USING GIN (to_tsvector('simple', concat_ws(' ', category, tags::text)));
+CREATE INDEX idx_market_items_fulltext ON market_items USING GIN (to_tsvector('simple'::regconfig, coalesce(category, '') || ' ' || coalesce(tags::text, '')));
 
 -- files
 CREATE INDEX idx_files_expiry ON files (expires_at) WHERE status = 'active';

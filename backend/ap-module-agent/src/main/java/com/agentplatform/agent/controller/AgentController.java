@@ -7,17 +7,24 @@ import com.agentplatform.common.core.response.PageResult;
 import com.agentplatform.common.core.security.CurrentUser;
 import com.agentplatform.common.core.security.UserPrincipal;
 import com.agentplatform.common.core.trace.RequestIdContext;
+import com.agentplatform.common.core.error.ErrorCode;
+import com.agentplatform.common.core.error.ErrorResponse;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.validation.FieldError;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/agents")
@@ -88,9 +95,10 @@ public class AgentController {
     // ───────── 3.3 Export / Import ─────────
 
     @GetMapping(value = "/{id}/export", produces = MediaType.APPLICATION_JSON_VALUE)
-    public Map<String, Object> export(@PathVariable UUID id,
-                                      @CurrentUser UserPrincipal user) {
-        return agentService.export(id, user.id());
+    public ApiResponse<Map<String, Object>> export(@PathVariable UUID id,
+                                                   @CurrentUser UserPrincipal user) {
+        Map<String, Object> data = agentService.export(id, user.id());
+        return ApiResponse.ok(data, RequestIdContext.current());
     }
 
     @PostMapping("/import")
@@ -100,6 +108,22 @@ public class AgentController {
         String content = new String(file.getBytes(), StandardCharsets.UTF_8);
         AgentImportResult result = agentService.importAgent(content, user.id());
         return ApiResponse.ok(result, RequestIdContext.current());
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleAgentValidation(MethodArgumentNotValidException ex) {
+        Map<String, Object> details = new LinkedHashMap<>();
+        Map<String, String> fieldErrors = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.toMap(
+                        FieldError::getField,
+                        fe -> fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage(),
+                        (a, b) -> a,
+                        LinkedHashMap::new));
+        details.put("fields", fieldErrors);
+        ErrorCode code = ErrorCode.AGENT_VALIDATION_FAILED;
+        return ResponseEntity.status(code.getHttpStatus())
+                .body(ErrorResponse.of(code.name(), code.getDefaultMessage(), details,
+                        RequestIdContext.current()));
     }
 
     // ───────── 3.4 Version Management ─────────

@@ -20,8 +20,8 @@ import java.util.UUID;
 @Profile("!production")
 public class StubUserContext implements UserContext {
 
-    public static final String SEED_USER_ID = "11111111-1111-1111-1111-111111111111";
-    public static final String SEED_ORG_ID = "22222222-2222-2222-2222-222222222222";
+    public static final String SEED_USER_ID = "a0000000-0000-0000-0000-000000000001";
+    public static final String SEED_ORG_ID = "b0000000-0000-0000-0000-000000000001";
 
     private static final UserPrincipal DEFAULT = new UserPrincipal(
             UUID.fromString(SEED_USER_ID),

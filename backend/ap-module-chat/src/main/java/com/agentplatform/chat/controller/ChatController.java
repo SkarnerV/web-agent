@@ -56,10 +56,10 @@ public class ChatController {
     }
 
     @DeleteMapping("/sessions/{id}/messages")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void clearMessages(@PathVariable UUID id,
-                              @CurrentUser UserPrincipal user) {
+    public ApiResponse<Void> clearMessages(@PathVariable UUID id,
+                                           @CurrentUser UserPrincipal user) {
         sessionService.clearMessages(id, user.id());
+        return ApiResponse.ok(null, RequestIdContext.current());
     }
 
     // ───────── 4.4 Send Message (SSE) ─────────
@@ -67,7 +67,11 @@ public class ChatController {
     @PostMapping(value = "/sessions/{id}/messages", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter sendMessage(@PathVariable UUID id,
                                   @Valid @RequestBody SendMessageRequest request,
+                                  @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId,
                                   @CurrentUser UserPrincipal user) {
+        if (lastEventId != null) {
+            return chatOrchestrator.handleReconnect(id, lastEventId, user.id());
+        }
         return chatOrchestrator.handleSendMessage(id, request, user.id());
     }
 
@@ -84,9 +88,17 @@ public class ChatController {
     // ───────── 4.8 Switch Agent ─────────
 
     @PutMapping("/sessions/{id}/agent")
-    public ApiResponse<ChatMessageVO> switchAgent(@PathVariable UUID id,
-                                                  @RequestBody SwitchAgentRequest request,
-                                                  @CurrentUser UserPrincipal user) {
+    public ApiResponse<Void> switchAgent(@PathVariable UUID id,
+                                         @Valid @RequestBody SwitchAgentRequest request,
+                                         @CurrentUser UserPrincipal user) {
+        sessionService.switchAgent(id, request.getAgentId(), user.id());
+        return ApiResponse.ok(null, RequestIdContext.current());
+    }
+
+    @PostMapping("/sessions/{id}/switch-agent")
+    public ApiResponse<Void> switchAgentPost(@PathVariable UUID id,
+                                              @Valid @RequestBody SwitchAgentRequest request,
+                                              @CurrentUser UserPrincipal user) {
         sessionService.switchAgent(id, request.getAgentId(), user.id());
         return ApiResponse.ok(null, RequestIdContext.current());
     }

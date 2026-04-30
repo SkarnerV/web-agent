@@ -24,6 +24,13 @@ public class SseEventBuilder {
     private final AtomicLong eventCounter = new AtomicLong(0);
     private final AtomicInteger seqCounter = new AtomicInteger(0);
 
+    public record SseEventWithMeta(
+            SseEmitter.SseEventBuilder sseEvent,
+            String eventId,
+            String eventType,
+            String jsonData
+    ) {}
+
     public SseEventBuilder(String requestId, String messageId, ObjectMapper objectMapper) {
         this.requestId = requestId;
         this.messageId = messageId;
@@ -38,22 +45,22 @@ public class SseEventBuilder {
         return String.format("evt_%05d", eventCounter.incrementAndGet());
     }
 
-    public SseEmitter.SseEventBuilder messageStart(UUID agentId, String model) {
+    public SseEventWithMeta messageStart(UUID agentId, String model) {
         Map<String, Object> data = baseData();
         data.put("agent_id", agentId.toString());
         data.put("model", model);
         return buildEvent("message_start", data);
     }
 
-    public SseEmitter.SseEventBuilder token(String delta) {
+    public SseEventWithMeta token(String delta) {
         Map<String, Object> data = baseData();
         data.put("delta", delta);
         data.put("seq", seqCounter.incrementAndGet());
         return buildEvent("token", data);
     }
 
-    public SseEmitter.SseEventBuilder toolCallStart(String toolCallId, String toolName,
-                                                     String arguments, int stepNumber) {
+    public SseEventWithMeta toolCallStart(String toolCallId, String toolName,
+                                           String arguments, int stepNumber) {
         Map<String, Object> data = baseData();
         data.put("tool_call_id", toolCallId);
         data.put("tool_name", toolName);
@@ -62,8 +69,8 @@ public class SseEventBuilder {
         return buildEvent("tool_call_start", data);
     }
 
-    public SseEmitter.SseEventBuilder toolCallEnd(String toolCallId, String status,
-                                                   String resultSummary, long durationMs) {
+    public SseEventWithMeta toolCallEnd(String toolCallId, String status,
+                                         String resultSummary, long durationMs) {
         Map<String, Object> data = baseData();
         data.put("tool_call_id", toolCallId);
         data.put("status", status);
@@ -72,13 +79,13 @@ public class SseEventBuilder {
         return buildEvent("tool_call_end", data);
     }
 
-    public SseEmitter.SseEventBuilder citation(List<Map<String, Object>> sources) {
+    public SseEventWithMeta citation(List<Map<String, Object>> sources) {
         Map<String, Object> data = baseData();
         data.put("sources", sources);
         return buildEvent("citation", data);
     }
 
-    public SseEmitter.SseEventBuilder stepLimit(int currentStep, int maxSteps, UUID sessionStateId) {
+    public SseEventWithMeta stepLimit(int currentStep, int maxSteps, UUID sessionStateId) {
         Map<String, Object> data = baseData();
         data.put("current_step", currentStep);
         data.put("max_steps", maxSteps);
@@ -86,7 +93,7 @@ public class SseEventBuilder {
         return buildEvent("step_limit", data);
     }
 
-    public SseEmitter.SseEventBuilder messageEnd(String finishReason, Map<String, Object> usage, int totalSteps) {
+    public SseEventWithMeta messageEnd(String finishReason, Map<String, Object> usage, int totalSteps) {
         Map<String, Object> data = baseData();
         data.put("finish_reason", finishReason);
         data.put("usage", usage);
@@ -94,7 +101,7 @@ public class SseEventBuilder {
         return buildEvent("message_end", data);
     }
 
-    public SseEmitter.SseEventBuilder error(String code, String message, boolean recoverable) {
+    public SseEventWithMeta error(String code, String message, boolean recoverable) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("code", code);
         data.put("message", message);
@@ -103,7 +110,7 @@ public class SseEventBuilder {
         return buildEvent("error", data);
     }
 
-    public SseEmitter.SseEventBuilder heartbeat() {
+    public SseEventWithMeta heartbeat() {
         return buildEvent("heartbeat", Map.of());
     }
 
@@ -119,19 +126,22 @@ public class SseEventBuilder {
         return data;
     }
 
-    private SseEmitter.SseEventBuilder buildEvent(String eventType, Map<String, Object> data) {
+    private SseEventWithMeta buildEvent(String eventType, Map<String, Object> data) {
         String id = nextEventId();
         try {
             String json = objectMapper.writeValueAsString(data);
-            return SseEmitter.event()
+            SseEmitter.SseEventBuilder sseEvent = SseEmitter.event()
                     .id(id)
                     .name(eventType)
                     .data(json);
+            return new SseEventWithMeta(sseEvent, id, eventType, json);
         } catch (JsonProcessingException e) {
-            return SseEmitter.event()
+            String errorJson = "{\"code\":\"INTERNAL_ERROR\",\"message\":\"JSON serialization failed\"}";
+            SseEmitter.SseEventBuilder sseEvent = SseEmitter.event()
                     .id(id)
                     .name("error")
-                    .data("{\"code\":\"INTERNAL_ERROR\",\"message\":\"JSON serialization failed\"}");
+                    .data(errorJson);
+            return new SseEventWithMeta(sseEvent, id, "error", errorJson);
         }
     }
 }

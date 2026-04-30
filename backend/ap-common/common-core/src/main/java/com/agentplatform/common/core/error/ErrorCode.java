@@ -28,6 +28,7 @@ public enum ErrorCode {
     AGENT_IMPORT_INVALID(HttpStatus.BAD_REQUEST, "导入文件格式不正确"),
 
     CHAT_SESSION_NOT_FOUND(HttpStatus.NOT_FOUND, "会话不存在"),
+    CHAT_SESSION_STATE_EXPIRED(HttpStatus.NOT_FOUND, "会话状态不存在或已过期"),
     CHAT_IDEMPOTENCY_CONFLICT(HttpStatus.CONFLICT, "幂等键被复用于不同请求体"),
     CHAT_STEP_LIMIT(HttpStatus.OK, "已达到最大步骤数"),
     CHAT_MODEL_ERROR(HttpStatus.OK, "模型推理失败"),

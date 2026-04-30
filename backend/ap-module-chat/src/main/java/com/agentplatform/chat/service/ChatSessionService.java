@@ -37,6 +37,7 @@ public class ChatSessionService {
     @Transactional
     public ChatSessionVO createSession(CreateSessionRequest request, UUID userId) {
         ChatSessionEntity entity = new ChatSessionEntity()
+                .setId(UUID.randomUUID())
                 .setUserId(userId)
                 .setCurrentAgentId(request.getAgentId())
                 .setTitle("新对话")
@@ -93,6 +94,7 @@ public class ChatSessionService {
         sessionMapper.updateById(session);
 
         ChatMessageEntity separator = new ChatMessageEntity()
+                .setId(UUID.randomUUID())
                 .setSessionId(sessionId)
                 .setRole("separator")
                 .setContent("— 已切换到新 Agent —")

@@ -10,9 +10,13 @@ import com.agentplatform.chat.llm.LlmStreamService;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
 import com.agentplatform.chat.mapper.ChatSessionStateMapper;
 import com.agentplatform.chat.service.ChatSessionService;
+import com.agentplatform.chat.sse.IdempotencyService;
 import com.agentplatform.chat.sse.SseEventBuilder;
+import com.agentplatform.chat.sse.SseEventBuilder.SseEventWithMeta;
+import com.agentplatform.chat.sse.SseEventCacheService;
 import com.agentplatform.chat.tool.ToolDispatcher;
 import com.agentplatform.chat.tool.ToolResult;
+import com.agentplatform.common.core.agent.AgentConfigProvider;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,12 +45,17 @@ public class ChatOrchestrator {
     private static final int HEARTBEAT_INTERVAL_SECONDS = 15;
     private static final int DEFAULT_MAX_STEPS = 10;
 
+    private static final String DEFAULT_MODEL_ID = "gpt-4o";
+
     private final ChatSessionService sessionService;
     private final ChatMessageMapper messageMapper;
     private final ChatSessionStateMapper sessionStateMapper;
     private final LlmStreamService llmStreamService;
     private final ToolDispatcher toolDispatcher;
     private final ObjectMapper objectMapper;
+    private final AgentConfigProvider agentConfigProvider;
+    private final IdempotencyService idempotencyService;
+    private final SseEventCacheService sseEventCacheService;
     private final ScheduledExecutorService heartbeatScheduler =
             Executors.newScheduledThreadPool(2, Thread.ofVirtual().factory());
 
@@ -55,19 +64,34 @@ public class ChatOrchestrator {
                             ChatSessionStateMapper sessionStateMapper,
                             LlmStreamService llmStreamService,
                             ToolDispatcher toolDispatcher,
-                            ObjectMapper objectMapper) {
+                            ObjectMapper objectMapper,
+                            AgentConfigProvider agentConfigProvider,
+                            IdempotencyService idempotencyService,
+                            SseEventCacheService sseEventCacheService) {
         this.sessionService = sessionService;
         this.messageMapper = messageMapper;
         this.sessionStateMapper = sessionStateMapper;
         this.llmStreamService = llmStreamService;
         this.toolDispatcher = toolDispatcher;
         this.objectMapper = objectMapper;
+        this.agentConfigProvider = agentConfigProvider;
+        this.idempotencyService = idempotencyService;
+        this.sseEventCacheService = sseEventCacheService;
     }
 
     public SseEmitter handleSendMessage(UUID sessionId, SendMessageRequest request, UUID userId) {
         ChatSessionEntity session = sessionService.getSessionOrThrow(sessionId, userId);
 
+        if (request.getIdempotencyKey() != null) {
+            String existingMsgId = idempotencyService.checkAndRegister(
+                    sessionId, request.getIdempotencyKey(), toJson(request));
+            if (existingMsgId != null) {
+                return replayCachedEvents(existingMsgId);
+            }
+        }
+
         ChatMessageEntity userMessage = new ChatMessageEntity()
+                .setId(UUID.randomUUID())
                 .setSessionId(sessionId)
                 .setRole("user")
                 .setContent(request.getContent())
@@ -80,9 +104,13 @@ public class ChatOrchestrator {
         messageMapper.insert(userMessage);
 
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        String messageId = "msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String messageId = UUID.randomUUID().toString();
 
-        return startStreamReply(session, requestId, messageId, DEFAULT_MAX_STEPS, 0);
+        UUID agentId = session.getCurrentAgentId();
+        int maxSteps = resolveMaxSteps(agentId);
+
+        return startStreamReply(session, requestId, messageId, maxSteps, 0, false,
+                request.getIdempotencyKey());
     }
 
     public SseEmitter handleRegenerate(UUID sessionId, UUID msgId, UUID userId) {
@@ -104,7 +132,37 @@ public class ChatOrchestrator {
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         String messageId = original.getId().toString();
 
-        return startStreamReply(session, requestId, messageId, DEFAULT_MAX_STEPS, 0);
+        int maxSteps = resolveMaxSteps(session.getCurrentAgentId());
+
+        return startStreamReply(session, requestId, messageId, maxSteps, 0, true, null);
+    }
+
+    public SseEmitter handleReconnect(UUID sessionId, String lastEventId, UUID userId) {
+        sessionService.getSessionOrThrow(sessionId, userId);
+
+        String messageId = sseEventCacheService.resolveMessageId(sessionId.toString());
+        if (messageId == null) {
+            SseEmitter emitter = new SseEmitter(0L);
+            emitter.complete();
+            return emitter;
+        }
+
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        Thread.ofVirtual().name("sse-reconnect-" + sessionId).start(() -> {
+            try {
+                var events = sseEventCacheService.getEventsAfter(messageId, lastEventId);
+                for (var cached : events) {
+                    emitter.send(SseEmitter.event()
+                            .id(cached.eventId())
+                            .name(cached.eventType())
+                            .data(cached.data()));
+                }
+                emitter.complete();
+            } catch (IOException e) {
+                log.debug("Reconnect replay failed: {}", e.getMessage());
+            }
+        });
+        return emitter;
     }
 
     public SseEmitter handleContinue(UUID sessionId, UUID sessionStateId, UUID userId) {
@@ -115,24 +173,28 @@ public class ChatOrchestrator {
             throw new BizException(ErrorCode.CHAT_SESSION_NOT_FOUND);
         }
         if (state.getExpiresAt().isBefore(OffsetDateTime.now())) {
-            throw new BizException(ErrorCode.ASSET_NOT_FOUND, Map.of("reason", "session_state expired"));
+            throw new BizException(ErrorCode.CHAT_SESSION_STATE_EXPIRED,
+                    Map.of("session_state_id", sessionStateId.toString()));
         }
 
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        String messageId = "msg_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        String messageId = UUID.randomUUID().toString();
         int resumeStep = state.getStepCount();
 
-        return startStreamReply(session, requestId, messageId, DEFAULT_MAX_STEPS, resumeStep);
+        int maxSteps = resolveMaxSteps(session.getCurrentAgentId());
+
+        return startStreamReply(session, requestId, messageId, maxSteps, resumeStep, false, null);
     }
 
     private SseEmitter startStreamReply(ChatSessionEntity session, String requestId,
-                                         String messageId, int maxSteps, int startStep) {
+                                         String messageId, int maxSteps, int startStep,
+                                         boolean isUpdate, String idempotencyKey) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         ScheduledFuture<?> heartbeat = heartbeatScheduler.scheduleAtFixedRate(() -> {
             try {
                 SseEventBuilder evtBuilder = new SseEventBuilder(requestId, messageId, objectMapper);
-                emitter.send(evtBuilder.heartbeat());
+                emitter.send(evtBuilder.heartbeat().sseEvent());
             } catch (IOException e) {
                 log.debug("Heartbeat send failed (client may have disconnected)");
             }
@@ -143,13 +205,15 @@ public class ChatOrchestrator {
         emitter.onError(e -> heartbeat.cancel(false));
 
         Thread.ofVirtual().name("chat-orch-" + messageId).start(() ->
-                streamReply(session, requestId, messageId, maxSteps, startStep, emitter));
+                streamReply(session, requestId, messageId, maxSteps, startStep, isUpdate,
+                        idempotencyKey, emitter));
 
         return emitter;
     }
 
     private void streamReply(ChatSessionEntity session, String requestId, String messageId,
-                             int maxSteps, int startStep, SseEmitter emitter) {
+                             int maxSteps, int startStep, boolean isUpdate,
+                             String idempotencyKey, SseEmitter emitter) {
         SseEventBuilder evt = new SseEventBuilder(requestId, messageId, objectMapper);
         StringBuilder fullContent = new StringBuilder();
         List<Map<String, Object>> toolCallRecords = new ArrayList<>();
@@ -161,8 +225,10 @@ public class ChatOrchestrator {
         try {
             UUID agentId = session.getCurrentAgentId();
             String modelId = resolveModelId(agentId);
+            Map<String, Map<String, Object>> toolBindingMap = agentConfigProvider.getToolBindings(agentId);
 
-            emitter.send(evt.messageStart(agentId, modelId));
+            sseEventCacheService.registerSessionMessage(session.getId().toString(), messageId);
+            sendAndCache(emitter, evt.messageStart(agentId, modelId), messageId);
 
             List<LlmMessage> context = buildContext(session);
 
@@ -178,17 +244,20 @@ public class ChatOrchestrator {
                     switch (chunk) {
                         case LlmChunk.TokenChunk tc -> {
                             fullContent.append(tc.delta());
-                            emitter.send(evt.token(tc.delta()));
+                            sendAndCache(emitter, evt.token(tc.delta()), messageId);
                         }
                         case LlmChunk.ToolCallChunk tcc -> {
-                            emitter.send(evt.toolCallStart(tcc.toolCallId(), tcc.toolName(),
-                                    tcc.arguments(), step));
+                            sendAndCache(emitter, evt.toolCallStart(tcc.toolCallId(), tcc.toolName(),
+                                    tcc.arguments(), step), messageId);
 
+                            Map<String, Object> bindingConfig = toolBindingMap.getOrDefault(
+                                    tcc.toolName(), Map.of());
                             ToolResult result = toolDispatcher.dispatch(
-                                    tcc.toolCallId(), tcc.toolName(), tcc.arguments(), Map.of());
+                                    tcc.toolCallId(), tcc.toolName(), tcc.arguments(), bindingConfig);
 
-                            emitter.send(evt.toolCallEnd(tcc.toolCallId(), result.status(),
-                                    truncate(result.content(), 200), result.durationMs()));
+                            sendAndCache(emitter, evt.toolCallEnd(tcc.toolCallId(), result.status(),
+                                    truncate(result.content(), 200), result.durationMs()),
+                                    messageId);
 
                             toolCallRecords.add(Map.of(
                                     "tool_call_id", tcc.toolCallId(),
@@ -208,10 +277,12 @@ public class ChatOrchestrator {
                             continueLoop = false;
                         }
                         case LlmChunk.ErrorChunk ec -> {
-                            emitter.send(evt.error(ec.code(), ec.message(), false));
+                            sendAndCache(emitter, evt.error(ec.code(), ec.message(), false),
+                                    messageId);
                             persistMessage(session.getId(), messageId, fullContent.toString(),
                                     "incomplete", agentId, modelId, totalSteps,
-                                    toolCallRecords, toolResultRecords, promptTokens, completionTokens);
+                                    toolCallRecords, toolResultRecords, promptTokens, completionTokens,
+                                    isUpdate);
                             emitter.complete();
                             return;
                         }
@@ -224,10 +295,11 @@ public class ChatOrchestrator {
 
                 if (step >= startStep + maxSteps) {
                     UUID stateId = saveSessionState(session.getId(), context, step);
-                    emitter.send(evt.stepLimit(step, maxSteps, stateId));
+                    sendAndCache(emitter, evt.stepLimit(step, maxSteps, stateId), messageId);
                     persistMessage(session.getId(), messageId, fullContent.toString(),
                             "incomplete", agentId, modelId, totalSteps,
-                            toolCallRecords, toolResultRecords, promptTokens, completionTokens);
+                            toolCallRecords, toolResultRecords, promptTokens, completionTokens,
+                            isUpdate);
                     emitter.complete();
                     return;
                 }
@@ -236,11 +308,16 @@ public class ChatOrchestrator {
             Map<String, Object> usage = Map.of(
                     "prompt_tokens", promptTokens,
                     "completion_tokens", completionTokens);
-            emitter.send(evt.messageEnd("stop", usage, totalSteps));
+            sendAndCache(emitter, evt.messageEnd("stop", usage, totalSteps), messageId);
 
             persistMessage(session.getId(), messageId, fullContent.toString(),
                     "complete", agentId, modelId, totalSteps,
-                    toolCallRecords, toolResultRecords, promptTokens, completionTokens);
+                    toolCallRecords, toolResultRecords, promptTokens, completionTokens,
+                    isUpdate);
+
+            if (idempotencyKey != null) {
+                idempotencyService.markComplete(session.getId(), idempotencyKey, messageId);
+            }
 
             if (fullContent.length() > 0) {
                 String title = fullContent.substring(0, Math.min(20, fullContent.length()));
@@ -254,7 +331,7 @@ public class ChatOrchestrator {
         } catch (Exception e) {
             log.error("Chat orchestration error", e);
             try {
-                emitter.send(evt.error("CHAT_MODEL_ERROR", e.getMessage(), false));
+                emitter.send(evt.error("CHAT_MODEL_ERROR", e.getMessage(), false).sseEvent());
                 emitter.complete();
             } catch (IOException ioe) {
                 log.debug("Failed to send error event");
@@ -303,27 +380,89 @@ public class ChatOrchestrator {
     }
 
     private String resolveModelId(UUID agentId) {
-        // TODO: Load from AgentService → agent.model_id, fallback to default model
-        return "gpt-4o";
+        String modelId = agentConfigProvider.getModelId(agentId);
+        return modelId != null ? modelId : DEFAULT_MODEL_ID;
+    }
+
+    private int resolveMaxSteps(UUID agentId) {
+        Integer maxSteps = agentConfigProvider.getMaxSteps(agentId);
+        return maxSteps != null ? maxSteps : DEFAULT_MAX_STEPS;
+    }
+
+    private void sendAndCache(SseEmitter emitter, SseEventWithMeta event,
+                              String messageId) throws IOException {
+        emitter.send(event.sseEvent());
+        try {
+            sseEventCacheService.appendEvent(messageId, event.eventId(),
+                    event.eventType(), event.jsonData());
+        } catch (Exception e) {
+            log.debug("SSE event cache failed: {}", e.getMessage());
+        }
+    }
+
+    private SseEmitter replayCachedEvents(String messageId) {
+        SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
+        Thread.ofVirtual().name("sse-replay-" + messageId).start(() -> {
+            try {
+                var events = sseEventCacheService.getEventsAfter(messageId, null);
+                for (var cached : events) {
+                    emitter.send(SseEmitter.event()
+                            .id(cached.eventId())
+                            .name(cached.eventType())
+                            .data(cached.data()));
+                }
+                emitter.complete();
+            } catch (IOException e) {
+                log.debug("Replay send failed: {}", e.getMessage());
+            }
+        });
+        return emitter;
     }
 
     private UUID saveSessionState(UUID sessionId, List<LlmMessage> context, int stepCount) {
+        UUID stateId = UUID.randomUUID();
         ChatSessionStateEntity state = new ChatSessionStateEntity()
+                .setId(stateId)
                 .setSessionId(sessionId)
                 .setContextSnapshot(toJson(context))
                 .setStepCount(stepCount)
                 .setCreatedAt(OffsetDateTime.now())
                 .setExpiresAt(OffsetDateTime.now().plusHours(1));
         sessionStateMapper.insert(state);
-        return state.getId();
+        return stateId;
     }
 
     private void persistMessage(UUID sessionId, String messageId, String content, String status,
                                 UUID agentId, String modelId, int stepCount,
                                 List<Map<String, Object>> toolCalls,
                                 List<Map<String, Object>> toolResults,
-                                int promptTokens, int completionTokens) {
+                                int promptTokens, int completionTokens,
+                                boolean isUpdate) {
+        String toolCallsJson = toolCalls.isEmpty() ? null : toJson(toolCalls);
+        String toolResultsJson = toolResults.isEmpty() ? null : toJson(toolResults);
+        Map<String, Object> usage = Map.of(
+                "prompt_tokens", promptTokens,
+                "completion_tokens", completionTokens);
+        String usageJson = toJson(usage);
+
+        if (isUpdate) {
+            UUID msgUuid = UUID.fromString(messageId);
+            ChatMessageEntity existing = messageMapper.selectById(msgUuid);
+            if (existing != null) {
+                existing.setContent(content);
+                existing.setStatus(status);
+                existing.setModelId(modelId);
+                existing.setStepCount(stepCount);
+                existing.setToolCalls(toolCallsJson);
+                existing.setToolResults(toolResultsJson);
+                existing.setUsage(usageJson);
+                messageMapper.updateById(existing);
+                return;
+            }
+        }
+
         ChatMessageEntity msg = new ChatMessageEntity()
+                .setId(UUID.fromString(messageId))
                 .setSessionId(sessionId)
                 .setRole("assistant")
                 .setContent(content)
@@ -333,17 +472,9 @@ public class ChatOrchestrator {
                 .setStepCount(stepCount)
                 .setCreatedAt(OffsetDateTime.now());
 
-        if (!toolCalls.isEmpty()) {
-            msg.setToolCalls(toJson(toolCalls));
-        }
-        if (!toolResults.isEmpty()) {
-            msg.setToolResults(toJson(toolResults));
-        }
-
-        Map<String, Object> usage = Map.of(
-                "prompt_tokens", promptTokens,
-                "completion_tokens", completionTokens);
-        msg.setUsage(toJson(usage));
+        msg.setToolCalls(toolCallsJson);
+        msg.setToolResults(toolResultsJson);
+        msg.setUsage(usageJson);
 
         messageMapper.insert(msg);
     }

@@ -16,7 +16,7 @@ import java.util.UUID;
 @TableName(value = "agent_tool_bindings", autoResultMap = true)
 public class AgentToolBindingEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID agentId;

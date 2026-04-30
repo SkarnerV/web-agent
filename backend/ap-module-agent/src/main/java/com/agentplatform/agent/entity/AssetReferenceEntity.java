@@ -15,7 +15,7 @@ import java.util.UUID;
 @TableName(value = "asset_references", autoResultMap = true)
 public class AssetReferenceEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private String referrerType;

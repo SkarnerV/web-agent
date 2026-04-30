@@ -16,7 +16,7 @@ import java.util.UUID;
 @TableName(value = "asset_versions", autoResultMap = true)
 public class AssetVersionEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private String assetType;

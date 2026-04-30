@@ -10,6 +10,7 @@ import com.agentplatform.agent.mapper.AgentMapper;
 import com.agentplatform.agent.mapper.AgentToolBindingMapper;
 import com.agentplatform.agent.mapper.AssetReferenceMapper;
 import com.agentplatform.agent.mapper.AssetVersionMapper;
+import com.agentplatform.common.core.agent.SourceResolver;
 import com.agentplatform.common.core.enums.AssetStatus;
 import com.agentplatform.common.core.enums.AssetType;
 import com.agentplatform.common.core.enums.SourceType;
@@ -46,6 +47,7 @@ public class AgentService {
     private final AgentConverter agentConverter;
     private final PermissionChecker permissionChecker;
     private final ObjectMapper objectMapper;
+    private final SourceResolver sourceResolver;
 
     public AgentService(AgentMapper agentMapper,
                         AgentToolBindingMapper toolBindingMapper,
@@ -53,7 +55,8 @@ public class AgentService {
                         AssetVersionMapper assetVersionMapper,
                         AgentConverter agentConverter,
                         PermissionChecker permissionChecker,
-                        ObjectMapper objectMapper) {
+                        ObjectMapper objectMapper,
+                        SourceResolver sourceResolver) {
         this.agentMapper = agentMapper;
         this.toolBindingMapper = toolBindingMapper;
         this.assetReferenceMapper = assetReferenceMapper;
@@ -61,6 +64,7 @@ public class AgentService {
         this.agentConverter = agentConverter;
         this.permissionChecker = permissionChecker;
         this.objectMapper = objectMapper;
+        this.sourceResolver = sourceResolver;
     }
 
     // ───────── 3.1 CRUD ─────────
@@ -219,7 +223,7 @@ public class AgentService {
 
         AgentEntity copy = new AgentEntity();
         copy.setOwnerId(currentUserId);
-        copy.setName(source.getName() + "-副本");
+        copy.setName(source.getName() + "-Copy");
         copy.setDescription(source.getDescription());
         copy.setAvatar(source.getAvatar());
         copy.setSystemPrompt(source.getSystemPrompt());
@@ -289,6 +293,8 @@ public class AgentService {
             Map<String, Object> tb = new LinkedHashMap<>();
             tb.put("source_type", b.getSourceType());
             tb.put("source_id", b.getSourceId());
+            tb.put("source_name", sourceResolver.resolveSourceName(b.getSourceType(), b.getSourceId()));
+            tb.put("source_url", sourceResolver.resolveSourceUrl(b.getSourceType(), b.getSourceId()));
             tb.put("tool_name", b.getToolName());
             tb.put("tool_schema_snapshot", parseJson(b.getToolSchemaSnapshot()));
             tb.put("enabled", b.getEnabled());

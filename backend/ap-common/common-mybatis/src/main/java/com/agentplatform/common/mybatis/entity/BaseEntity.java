@@ -17,7 +17,7 @@ import java.util.UUID;
  */
 public abstract class BaseEntity implements Serializable {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     @TableField(fill = FieldFill.INSERT)

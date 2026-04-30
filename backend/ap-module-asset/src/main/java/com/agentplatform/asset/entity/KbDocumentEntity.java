@@ -14,7 +14,7 @@ import java.util.UUID;
 @TableName("kb_documents")
 public class KbDocumentEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID knowledgeBaseId;

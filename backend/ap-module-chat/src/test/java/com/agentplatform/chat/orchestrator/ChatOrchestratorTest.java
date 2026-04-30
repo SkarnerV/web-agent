@@ -8,7 +8,10 @@ import com.agentplatform.chat.llm.LlmStreamService;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
 import com.agentplatform.chat.mapper.ChatSessionStateMapper;
 import com.agentplatform.chat.service.ChatSessionService;
+import com.agentplatform.chat.sse.IdempotencyService;
+import com.agentplatform.chat.sse.SseEventCacheService;
 import com.agentplatform.chat.tool.ToolDispatcher;
+import com.agentplatform.common.core.agent.AgentConfigProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -34,6 +37,9 @@ class ChatOrchestratorTest {
     @Mock private ChatMessageMapper messageMapper;
     @Mock private ChatSessionStateMapper sessionStateMapper;
     @Mock private ToolDispatcher toolDispatcher;
+    @Mock private AgentConfigProvider agentConfigProvider;
+    @Mock private IdempotencyService idempotencyService;
+    @Mock private SseEventCacheService sseEventCacheService;
 
     private LlmStreamService llmStreamService;
     private ObjectMapper objectMapper;
@@ -50,7 +56,8 @@ class ChatOrchestratorTest {
         llmStreamService = new DefaultLlmStreamService();
         orchestrator = new ChatOrchestrator(
                 sessionService, messageMapper, sessionStateMapper,
-                llmStreamService, toolDispatcher, objectMapper);
+                llmStreamService, toolDispatcher, objectMapper,
+                agentConfigProvider, idempotencyService, sseEventCacheService);
     }
 
     @Test

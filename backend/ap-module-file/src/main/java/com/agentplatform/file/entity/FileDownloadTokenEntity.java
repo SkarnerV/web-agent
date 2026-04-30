@@ -14,7 +14,7 @@ import java.util.UUID;
 @TableName("file_download_tokens")
 public class FileDownloadTokenEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID fileId;

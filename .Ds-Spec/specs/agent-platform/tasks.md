@@ -175,7 +175,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 2. 数据模型与数据库迁移
+- 1. 数据模型与数据库迁移
   - 2.1 Flyway 迁移脚本 — 用户与资产表
     - Scope:
       - `V1__users_orgs.sql`：`users`、`organizations`、`org_memberships` 表 + 种子用户数据
@@ -240,7 +240,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 3. Agent 模块（ap-module-agent）
+- 1. Agent 模块（ap-module-agent）
   - 3.1 实现 Agent CRUD
     - Scope:
       - `AgentController`：POST / GET(list) / GET(detail) / PUT / DELETE
@@ -312,7 +312,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 4. 对话引擎（ap-module-chat）
+- 1. 对话引擎（ap-module-chat）
   - 4.1 实现会话管理
     - Scope:
       - `POST /api/v1/chat/sessions`（绑定 agent_id）、`GET` 列表、`GET /{id}` 详情含消息历史、`DELETE /{id}/messages` 清空消息
@@ -464,7 +464,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 5. 工具与模型注册表（ap-common）
+- 1. 工具与模型注册表（ap-common）
   - 5.1 实现 ToolRegistry
     - Scope:
       - `ToolRegistry` 接口：`getAvailableTools(userId)`、`getToolById(toolId)`、`resolveAgentTools(config)`、`refreshMcpTools(mcpId)`、`registerBuiltinTool(def)`
@@ -500,7 +500,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 6. Skill 模块（ap-module-asset）
+- 1. Skill 模块（ap-module-asset）
   - 6.1 实现 Skill CRUD
     - Scope:
       - `SkillController`：POST / GET(list) / GET(detail) / PUT / DELETE
@@ -519,7 +519,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 7. MCP 模块（ap-module-asset）
+- 1. MCP 模块（ap-module-asset）
   - 7.1 实现 MCP CRUD
     - Scope:
       - `McpController`：POST / GET(list) / GET(detail) / PUT / DELETE / PUT toggle
@@ -570,7 +570,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 8. 知识库模块（ap-module-asset）
+- 1. 知识库模块（ap-module-asset）
   - 8.1 实现知识库 CRUD
     - Scope:
       - `KnowledgeController`：POST / GET(list) / GET(detail) / PUT / DELETE
@@ -653,7 +653,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 9. 文件模块（ap-module-file）
+- 1. 文件模块（ap-module-file）
   - 9.1 实现文件上传
     - Scope:
       - `POST /api/v1/files/upload`：multipart 接收
@@ -722,7 +722,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 10. 模型配置（跨模块）
+- 1. 模型配置（跨模块）
   - 10.1 实现内置模型查询
     - Scope:
       - `GET /api/v1/models/builtin`：查询 `builtin_models` 表（enabled=true）
@@ -754,7 +754,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 11. 市场模块（ap-module-market）
+- 1. 市场模块（ap-module-market）
   - 11.1 实现资产发布
     - Scope:
       - `POST /api/v1/market/publish`：创建 `asset_versions`（config_snapshot 含完整 tool_bindings + tool_schema_snapshot）+ 创建/更新 `market_items`
@@ -837,7 +837,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 12. 横切关注点
+- 1. 横切关注点
   - 12.1 OpenAPI 接口文档生成
     - Scope:
       - 引入 SpringDoc OpenAPI 依赖
@@ -879,7 +879,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 
 ---
 
-- 13. 端到端冒烟验证
+- 1. 端到端冒烟验证
   - 13.1 核心对话链路
     - Scope:
       - 单个集成测试覆盖：创建 Agent（绑定内置工具 + Skill + 知识库）→ 创建会话 → 发送消息 → SSE 流式响应（含工具调用）→ 消息持久化 → 查询历史

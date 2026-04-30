@@ -14,6 +14,7 @@ import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
 import com.agentplatform.common.core.security.AssetRef;
 import com.agentplatform.common.core.security.Permission;
+import com.agentplatform.common.core.agent.SourceResolver;
 import com.agentplatform.common.core.security.PermissionChecker;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +45,7 @@ class AgentServiceTest {
     @Mock private AssetVersionMapper assetVersionMapper;
     @Mock private PermissionChecker permissionChecker;
     @Mock private AgentConverter agentConverter;
+    @Mock private SourceResolver sourceResolver;
 
     private ObjectMapper objectMapper;
     private AgentService agentService;
@@ -58,7 +60,8 @@ class AgentServiceTest {
         objectMapper.findAndRegisterModules();
         agentService = new AgentService(
                 agentMapper, toolBindingMapper, assetReferenceMapper,
-                assetVersionMapper, agentConverter, permissionChecker, objectMapper);
+                assetVersionMapper, agentConverter, permissionChecker, objectMapper,
+                sourceResolver);
     }
 
     // ───────── 3.1 CRUD Tests ─────────

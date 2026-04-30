@@ -15,7 +15,7 @@ import java.util.UUID;
 @TableName("custom_models")
 public class CustomModelEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID ownerId;

@@ -14,7 +14,7 @@ import java.util.UUID;
 @TableName("files")
 public class FileEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID ownerId;

@@ -26,6 +26,17 @@ public class AuditMetaObjectHandler implements MetaObjectHandler {
 
     @Override
     public void insertFill(MetaObject metaObject) {
+        // Auto-generate UUID primary key if the entity has a UUID id field and it is not yet set
+        if (metaObject.hasSetter("id")) {
+            Object existingId = metaObject.getValue("id");
+            if (existingId == null) {
+                Class<?> idType = metaObject.getGetterType("id");
+                if (UUID.class.equals(idType)) {
+                    metaObject.setValue("id", UUID.randomUUID());
+                }
+            }
+        }
+
         OffsetDateTime now = OffsetDateTime.now();
         UUID userId = currentUserId();
         strictInsertFill(metaObject, "createdAt", OffsetDateTime.class, now);

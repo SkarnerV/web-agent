@@ -16,7 +16,7 @@ import java.util.UUID;
 @TableName(value = "kb_chunks", autoResultMap = true)
 public class KbChunkEntity {
 
-    @TableId(type = IdType.ASSIGN_UUID)
+    @TableId(type = IdType.INPUT)
     private UUID id;
 
     private UUID documentId;
