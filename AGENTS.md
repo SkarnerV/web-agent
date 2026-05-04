@@ -162,6 +162,7 @@ springdoc.api-docs.path=/api-docs
 - **需求文档**: `.Ds-Spec/specs/agent-platform/requirements.md`
 - **设计文档**: `.Ds-Spec/specs/agent-platform/design.md`
 - **任务清单**: `.Ds-Spec/specs/agent-platform/tasks.md`
+- **UI/UX 设计图**: `design/agent-platform-ui.pen`（Pencil 设计文件，含设计系统组件与 Dashboard 等页面布局）
 - **开发进度**: `PROGRESS.md`
 
 ---

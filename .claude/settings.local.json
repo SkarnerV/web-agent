@@ -32,7 +32,19 @@
       "Bash(/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home/bin/java -version)",
       "Read(//opt/homebrew/Cellar/openjdk/**)",
       "Read(//opt/homebrew/Cellar/openjdk@21/21.0.11/libexec/openjdk.jdk/Contents/Home/bin/**)",
-      "Bash(/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java -version)"
+      "Bash(/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java -version)",
+      "Bash(npx msw *)",
+      "Bash(export JAVA_HOME=/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home)",
+      "Bash(./mvnw test *)",
+      "Bash(jar tf *)",
+      "Read(//private/tmp/**)",
+      "Bash(jar xf *)",
+      "Bash(javap -verbose -p com/agentplatform/agent/provider/AgentConfigProviderImpl.class)",
+      "Bash(docker info *)",
+      "Bash(xargs cat *)",
+      "Read(//Users/skarner/.claude/**)",
+      "Read(//Users/skarner/**)",
+      "Bash(./mvnw compile *)"
     ]
   }
 }

@@ -1,9 +1,9 @@
 package com.agentplatform.agent.provider;
 
 import com.agentplatform.agent.entity.AgentEntity;
-import com.agentplatform.agent.entity.AgentToolBindingEntity;
 import com.agentplatform.agent.mapper.AgentMapper;
-import com.agentplatform.agent.mapper.AgentToolBindingMapper;
+import com.agentplatform.common.mybatis.entity.AgentToolBindingEntity;
+import com.agentplatform.common.mybatis.mapper.AgentToolBindingMapper;
 import com.agentplatform.common.core.agent.AgentConfigProvider;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.stereotype.Component;

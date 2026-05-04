@@ -16,6 +16,7 @@ public class McpConverterImpl implements McpConverter {
         vo.setId(entity.getId());
         vo.setOwnerId(entity.getOwnerId());
         vo.setName(entity.getName());
+        vo.setDescription(entity.getDescription());
         vo.setUrl(entity.getUrl());
         vo.setProtocol(entity.getProtocol());
         vo.setJsonConfig(entity.getJsonConfig());
@@ -55,6 +56,7 @@ public class McpConverterImpl implements McpConverter {
         if (request == null) return null;
         McpEntity entity = new McpEntity();
         entity.setName(request.getName());
+        entity.setDescription(request.getDescription());
         entity.setUrl(request.getUrl());
         entity.setProtocol(request.getProtocol());
         entity.setJsonConfig(request.getJsonConfig());

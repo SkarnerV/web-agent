@@ -14,6 +14,8 @@ public class McpDetailVO {
 
     private String name;
 
+    private String description;
+
     private String url;
 
     private String protocol;
