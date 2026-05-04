@@ -28,7 +28,11 @@
       "Bash(curl -s http://localhost:3000/api/v1/agents?page=1\\\\&page_size=2)",
       "Bash(curl -s \"http://localhost:3000/api/v1/agents?page=1&page_size=2\")",
       "Bash(curl -s \"http://localhost:3000/api/v1/chat/sessions?page=1&page_size=2\")",
-      "Bash(curl -s \"http://localhost:8080/api/v1/health\")"
+      "Bash(curl -s \"http://localhost:8080/api/v1/health\")",
+      "Bash(/opt/homebrew/opt/java/libexec/openjdk.jdk/Contents/Home/bin/java -version)",
+      "Read(//opt/homebrew/Cellar/openjdk/**)",
+      "Read(//opt/homebrew/Cellar/openjdk@21/21.0.11/libexec/openjdk.jdk/Contents/Home/bin/**)",
+      "Bash(/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java -version)"
     ]
   }
 }
