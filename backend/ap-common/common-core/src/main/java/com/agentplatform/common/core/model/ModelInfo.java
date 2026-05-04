@@ -24,6 +24,9 @@ public class ModelInfo {
     private String apiUrl;
     private String apiKeyMasked;
     private String connectionStatus;
+    private String lastError;
+    private java.time.OffsetDateTime createdAt;
+    private java.time.OffsetDateTime updatedAt;
 
     // parsed config map (provider-specific settings)
     private Map<String, Object> config;
@@ -64,6 +67,15 @@ public class ModelInfo {
 
     public String getConnectionStatus() { return connectionStatus; }
     public void setConnectionStatus(String connectionStatus) { this.connectionStatus = connectionStatus; }
+
+    public String getLastError() { return lastError; }
+    public void setLastError(String lastError) { this.lastError = lastError; }
+
+    public java.time.OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(java.time.OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public java.time.OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(java.time.OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 
     public Map<String, Object> getConfig() { return config; }
     public void setConfig(Map<String, Object> config) { this.config = config; }

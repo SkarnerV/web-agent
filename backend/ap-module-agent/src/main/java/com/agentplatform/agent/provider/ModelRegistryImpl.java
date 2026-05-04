@@ -48,25 +48,8 @@ public class ModelRegistryImpl implements ModelRegistry {
     @Override
     public List<ModelInfo> getAllModels(UUID userId) {
         List<ModelInfo> result = new ArrayList<>();
-
-        // Builtin models
-        List<BuiltinModelEntity> builtins = builtinModelMapper.selectList(
-                new LambdaQueryWrapper<BuiltinModelEntity>()
-                        .eq(BuiltinModelEntity::getEnabled, true)
-                        .orderByAsc(BuiltinModelEntity::getSortOrder));
-        for (BuiltinModelEntity b : builtins) {
-            result.add(toModelInfo(b));
-        }
-
-        // Custom models for this user
-        List<CustomModelEntity> customs = customModelMapper.selectList(
-                new LambdaQueryWrapper<CustomModelEntity>()
-                        .eq(CustomModelEntity::getOwnerId, userId)
-                        .orderByDesc(CustomModelEntity::getCreatedAt));
-        for (CustomModelEntity c : customs) {
-            result.add(toModelInfo(c));
-        }
-
+        result.addAll(getBuiltinModels());
+        result.addAll(getCustomModels(userId));
         return result;
     }
 
@@ -138,6 +121,65 @@ public class ModelRegistryImpl implements ModelRegistry {
     }
 
     @Override
+    public List<ModelInfo> getBuiltinModels() {
+        List<BuiltinModelEntity> builtins = builtinModelMapper.selectList(
+                new LambdaQueryWrapper<BuiltinModelEntity>()
+                        .eq(BuiltinModelEntity::getEnabled, true)
+                        .orderByAsc(BuiltinModelEntity::getSortOrder));
+        return builtins.stream().map(this::toModelInfo).toList();
+    }
+
+    @Override
+    public List<ModelInfo> getCustomModels(UUID userId) {
+        List<CustomModelEntity> customs = customModelMapper.selectList(
+                new LambdaQueryWrapper<CustomModelEntity>()
+                        .eq(CustomModelEntity::getOwnerId, userId)
+                        .orderByDesc(CustomModelEntity::getCreatedAt));
+        return customs.stream().map(this::toModelInfo).toList();
+    }
+
+    @Override
+    @Transactional
+    public ModelInfo createCustomModel(String name, String apiUrl, byte[] apiKeyEnc,
+                                       String connectionStatus, UUID userId) {
+        CustomModelEntity entity = new CustomModelEntity();
+        entity.setId(UUID.randomUUID());
+        entity.setOwnerId(userId);
+        entity.setName(name);
+        entity.setApiUrl(apiUrl);
+        entity.setApiKeyEnc(apiKeyEnc);
+        entity.setConnectionStatus(connectionStatus);
+        entity.setCreatedAt(java.time.OffsetDateTime.now());
+        entity.setUpdatedAt(java.time.OffsetDateTime.now());
+        customModelMapper.insert(entity);
+        log.info("Created custom model {} ({}) for user {}", entity.getId(), name, userId);
+        return toModelInfo(entity);
+    }
+
+    @Override
+    @Transactional
+    public ModelInfo updateCustomModel(UUID modelId, String name, String apiUrl,
+                                       byte[] apiKeyEnc, String connectionStatus, UUID userId) {
+        CustomModelEntity entity = customModelMapper.selectById(modelId);
+        if (entity == null) {
+            throw new BizException(ErrorCode.ASSET_NOT_FOUND, "Custom model not found");
+        }
+        if (!entity.getOwnerId().equals(userId)) {
+            throw new BizException(ErrorCode.ASSET_PERMISSION_DENIED);
+        }
+
+        if (name != null) entity.setName(name);
+        if (apiUrl != null) entity.setApiUrl(apiUrl);
+        if (apiKeyEnc != null) entity.setApiKeyEnc(apiKeyEnc);
+        if (connectionStatus != null) entity.setConnectionStatus(connectionStatus);
+        entity.setUpdatedAt(java.time.OffsetDateTime.now());
+
+        customModelMapper.updateById(entity);
+        log.info("Updated custom model {}", modelId);
+        return toModelInfo(entity);
+    }
+
+    @Override
     public Map<String, Object> buildChatClient(ModelInfo model) {
         // MVP placeholder: returns a descriptive map instead of Spring AI ChatClient.
         // Full Spring AI integration (task 4.2) will replace this.
@@ -178,6 +220,9 @@ public class ModelRegistryImpl implements ModelRegistry {
             info.setApiKeyMasked(credentialStore.mask(stored));
         }
         info.setConnectionStatus(entity.getConnectionStatus());
+        info.setLastError(entity.getLastError());
+        info.setCreatedAt(entity.getCreatedAt());
+        info.setUpdatedAt(entity.getUpdatedAt());
         info.setEnabled(true);
         return info;
     }

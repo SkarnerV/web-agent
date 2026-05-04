@@ -44,7 +44,13 @@
       "Bash(xargs cat *)",
       "Read(//Users/skarner/.claude/**)",
       "Read(//Users/skarner/**)",
-      "Bash(./mvnw compile *)"
+      "Bash(./mvnw compile *)",
+      "Bash(mvn --version)",
+      "Bash(mvn test *)",
+      "Bash(export JAVA_HOME=/opt/homebrew/opt/openjdk@21)",
+      "Bash(/opt/homebrew/opt/openjdk@21/bin/java -version)",
+      "Bash(mvn install *)",
+      "Bash(mvn compile *)"
     ]
   }
 }

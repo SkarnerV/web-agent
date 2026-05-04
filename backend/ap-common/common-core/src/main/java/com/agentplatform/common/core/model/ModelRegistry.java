@@ -36,6 +36,34 @@ public interface ModelRegistry {
     String getDefaultModelId();
 
     /**
+     * Returns enabled builtin models only, ordered by sort_order.
+     */
+    List<ModelInfo> getBuiltinModels();
+
+    /**
+     * Returns custom models belonging to the given user.
+     */
+    List<ModelInfo> getCustomModels(UUID userId);
+
+    /**
+     * Creates a custom model with encrypted API key and connection status.
+     *
+     * @param apiKeyEnc encrypted API key bytes (already encrypted by CredentialStore)
+     * @param connectionStatus result of connectivity verification (e.g. "ok" or "failed")
+     */
+    ModelInfo createCustomModel(String name, String apiUrl, byte[] apiKeyEnc,
+                                String connectionStatus, UUID userId);
+
+    /**
+     * Updates a custom model. Only non-null fields are applied.
+     *
+     * @param apiKeyEnc encrypted API key bytes (already encrypted by CredentialStore), null to keep existing
+     * @param connectionStatus result of re-verification, null to keep existing
+     */
+    ModelInfo updateCustomModel(UUID modelId, String name, String apiUrl,
+                                byte[] apiKeyEnc, String connectionStatus, UUID userId);
+
+    /**
      * MVP placeholder: returns a ChatClient-like wrapper map.
      * Full Spring AI ChatClient integration deferred to post-MVP.
      */

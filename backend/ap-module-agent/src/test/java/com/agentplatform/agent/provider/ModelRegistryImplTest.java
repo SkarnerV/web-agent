@@ -230,6 +230,125 @@ class ModelRegistryImplTest {
         }
     }
 
+    @Nested
+    class GetBuiltinModels {
+
+        @Test
+        void returnsEnabledBuiltinModels() {
+            BuiltinModelEntity b1 = builtinEntity("gpt-4o", "GPT-4o", "openai", true, 1);
+            BuiltinModelEntity b2 = builtinEntity("gpt-4o-mini", "GPT-4o Mini", "openai", false, 2);
+
+            when(builtinModelMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(List.of(b1, b2));
+
+            List<ModelInfo> result = registry.getBuiltinModels();
+
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(ModelInfo::getId).containsExactly("gpt-4o", "gpt-4o-mini");
+            assertThat(result).allMatch(m -> m.getSource() == ModelInfo.Source.BUILTIN);
+            assertThat(result.get(0).isDefault()).isTrue();
+        }
+
+        @Test
+        void returnsEmptyWhenNoBuiltins() {
+            when(builtinModelMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+            assertThat(registry.getBuiltinModels()).isEmpty();
+        }
+    }
+
+    @Nested
+    class GetCustomModels {
+
+        @Test
+        void returnsUserCustomModels() {
+            UUID userId = UUID.randomUUID();
+            CustomModelEntity c1 = customEntity(userId, "My GPT", "https://api.a.com", "sk-a");
+            CustomModelEntity c2 = customEntity(userId, "My Claude", "https://api.b.com", "sk-b");
+
+            when(customModelMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(List.of(c1, c2));
+            when(credentialStore.mask("sk-a")).thenReturn("***a");
+            when(credentialStore.mask("sk-b")).thenReturn("***b");
+
+            List<ModelInfo> result = registry.getCustomModels(userId);
+
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(ModelInfo::getName).containsExactly("My GPT", "My Claude");
+            assertThat(result).extracting(ModelInfo::getApiKeyMasked).containsExactly("***a", "***b");
+            assertThat(result).allMatch(m -> m.getSource() == ModelInfo.Source.CUSTOM);
+        }
+    }
+
+    @Nested
+    class CreateAndUpdateCustomModel {
+
+        @Test
+        void createPersistsEntityAndReturnsModelInfo() {
+            UUID userId = UUID.randomUUID();
+            when(customModelMapper.insert(any(CustomModelEntity.class))).thenReturn(1);
+            when(credentialStore.mask("enc-sk")).thenReturn("***sk");
+
+            ModelInfo result = registry.createCustomModel("Test Model",
+                    "https://api.test.com", "enc-sk".getBytes(), "ok", userId);
+
+            assertThat(result.getName()).isEqualTo("Test Model");
+            assertThat(result.getApiUrl()).isEqualTo("https://api.test.com");
+            assertThat(result.getApiKeyMasked()).isEqualTo("***sk");
+            assertThat(result.getConnectionStatus()).isEqualTo("ok");
+            assertThat(result.getSource()).isEqualTo(ModelInfo.Source.CUSTOM);
+        }
+
+        @Test
+        void updateAppliesProvidedFields() {
+            UUID modelId = UUID.randomUUID();
+            UUID ownerId = UUID.randomUUID();
+
+            CustomModelEntity existing = customEntity(modelId, ownerId,
+                    "Old Name", "https://old.api.com", "old-key");
+            when(customModelMapper.selectById(modelId)).thenReturn(existing);
+            when(customModelMapper.updateById(any(CustomModelEntity.class))).thenReturn(1);
+            when(credentialStore.mask("new-key-enc")).thenReturn("***new");
+
+            ModelInfo result = registry.updateCustomModel(modelId, "New Name",
+                    "https://new.api.com", "new-key-enc".getBytes(), "ok", ownerId);
+
+            assertThat(result.getName()).isEqualTo("New Name");
+            assertThat(result.getApiUrl()).isEqualTo("https://new.api.com");
+            assertThat(result.getApiKeyMasked()).isEqualTo("***new");
+            assertThat(result.getConnectionStatus()).isEqualTo("ok");
+        }
+
+        @Test
+        void updateThrowsNotFound() {
+            UUID modelId = UUID.randomUUID();
+            UUID userId = UUID.randomUUID();
+            when(customModelMapper.selectById(modelId)).thenReturn(null);
+
+            assertThatThrownBy(() -> registry.updateCustomModel(modelId, "Name",
+                    null, null, null, userId))
+                    .isInstanceOf(BizException.class)
+                    .extracting(ex -> ((BizException) ex).getErrorCode())
+                    .isEqualTo(ErrorCode.ASSET_NOT_FOUND);
+        }
+
+        @Test
+        void updateThrowsPermissionDenied() {
+            UUID modelId = UUID.randomUUID();
+            UUID ownerId = UUID.randomUUID();
+            UUID otherUser = UUID.randomUUID();
+
+            CustomModelEntity existing = customEntity(modelId, ownerId,
+                    "My Model", "https://api.example.com", "sk");
+            when(customModelMapper.selectById(modelId)).thenReturn(existing);
+
+            assertThatThrownBy(() -> registry.updateCustomModel(modelId, "Name",
+                    null, null, null, otherUser))
+                    .isInstanceOf(BizException.class)
+                    .extracting(ex -> ((BizException) ex).getErrorCode())
+                    .isEqualTo(ErrorCode.ASSET_PERMISSION_DENIED);
+        }
+    }
+
     // ─── entity helpers ───
 
     private BuiltinModelEntity builtinEntity(String id, String name, String provider,

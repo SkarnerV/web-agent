@@ -23,4 +23,12 @@ public record ApiResponse<T>(
     public static <T> ApiResponse<T> ok(T data, String requestId) {
         return new ApiResponse<>(true, data, requestId, OffsetDateTime.now());
     }
+
+    public static <T> ApiResponse<T> created(T data) {
+        return new ApiResponse<>(true, data, null, OffsetDateTime.now());
+    }
+
+    public static <T> ApiResponse<T> created(T data, String requestId) {
+        return new ApiResponse<>(true, data, requestId, OffsetDateTime.now());
+    }
 }

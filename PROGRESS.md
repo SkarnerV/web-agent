@@ -12,13 +12,13 @@
 | Task 7 (MCP CRUD + Client) | ✅ Complete | 18 (McpCrudTest + McpToolCallTest) |
 | Task 8 (Knowledge Base CRUD) | ✅ Complete | 19 (KnowledgeBaseCrudTest) |
 | Task 9 (File) | ✅ Complete | 17 (FileServiceTest) |
-| Task 10 (Model Config) | ✅ Complete | 14 (ModelRegistryImplTest) |
+| Task 10 (Model Config) | ✅ Complete | 34 (ModelRegistryImplTest + ModelQueryTest + CustomModelTest) |
 | Task 11 (Market) | 🚧 Partial (entity/mapper/DTO) | — |
 | Task 12 (OpenAPI, CI) | 📋 Planned | — |
 | Task 13 (E2E) | 📋 Planned | — |
 | Frontend (React + Vite) | 🚧 In Progress | — |
 
-**Total Unit Tests**: 236 ✅ all passing (40 common-core + 31 agent + 36 chat + 69 asset + 17 file + 43 ap-app)
+**Total Unit Tests**: 256 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 17 file + 43 ap-app)
 
 ---
 
@@ -142,12 +142,20 @@ See previous sessions. Key commits:
 
 ### ✅ Task 10: Model Configuration
 
-**Subtask of Task 5** — builtin + custom model queries, built-in ModelRegistryImpl.
+**Subtask of Task 5** — builtin + custom model queries, REST API, connectivity verification.
 
 | Subtask | Description | Status |
 |---------|-------------|--------|
-| 10.1 | Builtin model query | ✅ |
-| 10.2 | Custom model CRUD (connectivity, delete reassign) | ✅ |
+| 10.1 | Builtin model query (GET /builtin, GET /all) | ✅ |
+| 10.2 | Custom model CRUD (POST/PUT/DELETE, connectivity, delete reassign) | ✅ |
+
+**Files**:
+- `ap-module-agent/controller/ModelController.java`
+- `ap-module-agent/service/ModelService.java`
+- `ap-module-agent/provider/ModelRegistryImpl.java` (extended)
+- `ap-common/common-core/model/ModelRegistry.java` (extended)
+
+**Tests**: ModelRegistryImplTest (14), ModelQueryTest (5), CustomModelTest (7)
 
 ---
 
@@ -202,12 +210,12 @@ Design system (17 reusable components): `design/agent-platform-ui.pen`
 | Module | Tests | Status |
 |--------|-------|--------|
 | common-core | 40 | ✅ Pass |
-| ap-module-agent | 31 | ✅ Pass |
+| ap-module-agent | 51 | ✅ Pass |
 | ap-module-chat | 36 | ✅ Pass |
 | ap-module-asset | 69 | ✅ Pass |
 | ap-module-file | 17 | ✅ Pass |
 | ap-app (Smoke/Flyway/Index) | 43 | ✅ Pass |
-| **Total** | **236** | **✅ All Pass** |
+| **Total** | **256** | **✅ All Pass** |
 
 ---
 
@@ -250,7 +258,7 @@ Design system (17 reusable components): `design/agent-platform-ui.pen`
 
 **Last Updated**: 2026-05-04  
 **Total Commits**: 26  
-**Unit Tests**: 236 passing  
-**Controllers**: 6 (Agent, Chat, Skill, MCP, Knowledge, File)  
-**Services**: 7 (Agent, ChatSession, Skill, MCP, KnowledgeBase, File, FileCleaner)  
+**Unit Tests**: 256 passing  
+**Controllers**: 7 (Agent, Chat, Skill, MCP, Knowledge, File, Model)  
+**Services**: 8 (Agent, ChatSession, Skill, MCP, KnowledgeBase, File, FileCleaner, Model)  
 **Design Components**: 17 reusable (agent-platform-ui.pen)
