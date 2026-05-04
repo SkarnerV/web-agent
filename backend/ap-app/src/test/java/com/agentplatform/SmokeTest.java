@@ -62,7 +62,7 @@ class SmokeTest {
         ResponseEntity<String> resp = rest.getForEntity(url("/api/v1/health/me"), String.class);
         assertThat(resp.getStatusCode().is2xxSuccessful()).isTrue();
         JsonNode user = mapper.readTree(resp.getBody()).get("data");
-        assertThat(user.get("id").asText()).isEqualTo("11111111-1111-1111-1111-111111111111");
+        assertThat(user.get("id").asText()).isEqualTo("a0000000-0000-0000-0000-000000000001");
         assertThat(user.get("name").asText()).isEqualTo("测试用户");
     }
 

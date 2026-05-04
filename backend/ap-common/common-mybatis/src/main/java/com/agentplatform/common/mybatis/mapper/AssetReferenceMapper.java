@@ -1,6 +1,6 @@
-package com.agentplatform.agent.mapper;
+package com.agentplatform.common.mybatis.mapper;
 
-import com.agentplatform.agent.entity.AssetReferenceEntity;
+import com.agentplatform.common.mybatis.entity.AssetReferenceEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 

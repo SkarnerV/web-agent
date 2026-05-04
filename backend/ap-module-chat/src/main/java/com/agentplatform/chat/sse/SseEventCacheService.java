@@ -1,5 +1,6 @@
 package com.agentplatform.chat.sse;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -13,6 +14,7 @@ import java.util.List;
  * TTL: 5 minutes
  */
 @Service
+@ConditionalOnBean(StringRedisTemplate.class)
 public class SseEventCacheService {
 
     private static final Duration EVENT_CACHE_TTL = Duration.ofMinutes(5);

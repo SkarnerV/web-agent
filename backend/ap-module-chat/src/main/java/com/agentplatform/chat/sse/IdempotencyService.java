@@ -2,6 +2,7 @@ package com.agentplatform.chat.sse;
 
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ import java.util.UUID;
  * Key format: idem:{session_id}:{idempotency_key} → {message_id, body_hash, status}
  */
 @Service
+@ConditionalOnBean(StringRedisTemplate.class)
 public class IdempotencyService {
 
     private static final Duration IDEM_TTL = Duration.ofMinutes(5);

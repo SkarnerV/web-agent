@@ -22,6 +22,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -57,7 +58,7 @@ class ChatOrchestratorTest {
         orchestrator = new ChatOrchestrator(
                 sessionService, messageMapper, sessionStateMapper,
                 llmStreamService, toolDispatcher, objectMapper,
-                agentConfigProvider, idempotencyService, sseEventCacheService);
+                Optional.of(agentConfigProvider), Optional.of(idempotencyService), Optional.of(sseEventCacheService));
     }
 
     @Test

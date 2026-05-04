@@ -53,9 +53,9 @@ public class ChatOrchestrator {
     private final LlmStreamService llmStreamService;
     private final ToolDispatcher toolDispatcher;
     private final ObjectMapper objectMapper;
-    private final AgentConfigProvider agentConfigProvider;
-    private final IdempotencyService idempotencyService;
-    private final SseEventCacheService sseEventCacheService;
+    private final Optional<AgentConfigProvider> agentConfigProvider;
+    private final Optional<IdempotencyService> idempotencyService;
+    private final Optional<SseEventCacheService> sseEventCacheService;
     private final ScheduledExecutorService heartbeatScheduler =
             Executors.newScheduledThreadPool(2, Thread.ofVirtual().factory());
 
@@ -65,9 +65,9 @@ public class ChatOrchestrator {
                             LlmStreamService llmStreamService,
                             ToolDispatcher toolDispatcher,
                             ObjectMapper objectMapper,
-                            AgentConfigProvider agentConfigProvider,
-                            IdempotencyService idempotencyService,
-                            SseEventCacheService sseEventCacheService) {
+                            Optional<AgentConfigProvider> agentConfigProvider,
+                            Optional<IdempotencyService> idempotencyService,
+                            Optional<SseEventCacheService> sseEventCacheService) {
         this.sessionService = sessionService;
         this.messageMapper = messageMapper;
         this.sessionStateMapper = sessionStateMapper;
@@ -82,8 +82,8 @@ public class ChatOrchestrator {
     public SseEmitter handleSendMessage(UUID sessionId, SendMessageRequest request, UUID userId) {
         ChatSessionEntity session = sessionService.getSessionOrThrow(sessionId, userId);
 
-        if (request.getIdempotencyKey() != null) {
-            String existingMsgId = idempotencyService.checkAndRegister(
+        if (request.getIdempotencyKey() != null && idempotencyService.isPresent()) {
+            String existingMsgId = idempotencyService.get().checkAndRegister(
                     sessionId, request.getIdempotencyKey(), toJson(request));
             if (existingMsgId != null) {
                 return replayCachedEvents(existingMsgId);
@@ -140,7 +140,7 @@ public class ChatOrchestrator {
     public SseEmitter handleReconnect(UUID sessionId, String lastEventId, UUID userId) {
         sessionService.getSessionOrThrow(sessionId, userId);
 
-        String messageId = sseEventCacheService.resolveMessageId(sessionId.toString());
+        String messageId = sseEventCacheService.map(svc -> svc.resolveMessageId(sessionId.toString())).orElse(null);
         if (messageId == null) {
             SseEmitter emitter = new SseEmitter(0L);
             emitter.complete();
@@ -150,7 +150,7 @@ public class ChatOrchestrator {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         Thread.ofVirtual().name("sse-reconnect-" + sessionId).start(() -> {
             try {
-                var events = sseEventCacheService.getEventsAfter(messageId, lastEventId);
+                var events = sseEventCacheService.map(svc -> svc.getEventsAfter(messageId, lastEventId)).orElse(List.of());
                 for (var cached : events) {
                     emitter.send(SseEmitter.event()
                             .id(cached.eventId())
@@ -225,9 +225,9 @@ public class ChatOrchestrator {
         try {
             UUID agentId = session.getCurrentAgentId();
             String modelId = resolveModelId(agentId);
-            Map<String, Map<String, Object>> toolBindingMap = agentConfigProvider.getToolBindings(agentId);
+            Map<String, Map<String, Object>> toolBindingMap = agentConfigProvider.map(p -> p.getToolBindings(agentId)).orElse(Map.of());
 
-            sseEventCacheService.registerSessionMessage(session.getId().toString(), messageId);
+            sseEventCacheService.ifPresent(svc -> svc.registerSessionMessage(session.getId().toString(), messageId));
             sendAndCache(emitter, evt.messageStart(agentId, modelId), messageId);
 
             List<LlmMessage> context = buildContext(session);
@@ -315,8 +315,8 @@ public class ChatOrchestrator {
                     toolCallRecords, toolResultRecords, promptTokens, completionTokens,
                     isUpdate);
 
-            if (idempotencyKey != null) {
-                idempotencyService.markComplete(session.getId(), idempotencyKey, messageId);
+            if (idempotencyKey != null && idempotencyService.isPresent()) {
+                idempotencyService.get().markComplete(session.getId(), idempotencyKey, messageId);
             }
 
             if (fullContent.length() > 0) {
@@ -380,12 +380,12 @@ public class ChatOrchestrator {
     }
 
     private String resolveModelId(UUID agentId) {
-        String modelId = agentConfigProvider.getModelId(agentId);
+        String modelId = agentConfigProvider.map(p -> p.getModelId(agentId)).orElse(null);
         return modelId != null ? modelId : DEFAULT_MODEL_ID;
     }
 
     private int resolveMaxSteps(UUID agentId) {
-        Integer maxSteps = agentConfigProvider.getMaxSteps(agentId);
+        Integer maxSteps = agentConfigProvider.map(p -> p.getMaxSteps(agentId)).orElse(null);
         return maxSteps != null ? maxSteps : DEFAULT_MAX_STEPS;
     }
 
@@ -393,8 +393,8 @@ public class ChatOrchestrator {
                               String messageId) throws IOException {
         emitter.send(event.sseEvent());
         try {
-            sseEventCacheService.appendEvent(messageId, event.eventId(),
-                    event.eventType(), event.jsonData());
+            sseEventCacheService.ifPresent(svc -> svc.appendEvent(messageId, event.eventId(),
+                    event.eventType(), event.jsonData()));
         } catch (Exception e) {
             log.debug("SSE event cache failed: {}", e.getMessage());
         }
@@ -404,7 +404,7 @@ public class ChatOrchestrator {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
         Thread.ofVirtual().name("sse-replay-" + messageId).start(() -> {
             try {
-                var events = sseEventCacheService.getEventsAfter(messageId, null);
+                var events = sseEventCacheService.map(svc -> svc.getEventsAfter(messageId, null)).orElse(List.of());
                 for (var cached : events) {
                     emitter.send(SseEmitter.event()
                             .id(cached.eventId())
