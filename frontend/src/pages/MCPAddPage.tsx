@@ -121,14 +121,14 @@ const MCPAddPage: React.FC = () => {
       <div className="p-10">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-xl font-semibold text-text-primary mb-2">添加 MCP Server</h1>
-          <p className="text-sm text-text-secondary">
+          <h1 className="text-2xl font-bold text-text-primary">添加 MCP Server</h1>
+          <p className="text-[13px] text-text-secondary">
             从市场安装预配置的 MCP Server，或手动配置自定义连接
           </p>
         </div>
 
         {/* Tab Switcher */}
-        <div className="inline-flex bg-gray-100 rounded-lg p-1 mb-8">
+        <div className="inline-flex bg-gray-100 rounded-lg p-1 mt-6 mb-6">
           <button
             onClick={() => setActiveTab('market')}
             className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${

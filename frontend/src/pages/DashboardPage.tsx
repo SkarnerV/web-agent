@@ -53,8 +53,8 @@ const DashboardPage: React.FC = () => {
       onClick: () => navigate('/skills/create')
     },
     {
-      icon: <Plug className="w-5 h-5 text-emerald-500" />,
-      iconBg: 'bg-emerald-50',
+      icon: <Plug className="w-5 h-5 text-success-500" />,
+      iconBg: 'bg-success-50',
       title: '添加 MCP',
       description: '接入外部工具服务器',
       onClick: () => navigate('/mcp/add')
@@ -124,8 +124,8 @@ const DashboardPage: React.FC = () => {
       description: '高质量中英互译'
     },
     {
-      icon: <Plug className="w-4 h-4 text-emerald-500" />,
-      iconBg: 'bg-emerald-50',
+      icon: <Plug className="w-4 h-4 text-success-500" />,
+      iconBg: 'bg-success-50',
       name: 'GitHub MCP',
       description: '代码仓库操作工具'
     }

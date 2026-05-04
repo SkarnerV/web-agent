@@ -137,7 +137,7 @@ const AgentMarketPage: React.FC = () => {
       <div className="p-8 flex flex-col gap-5 h-full">
         {/* Hero Banner */}
         <div 
-          className="rounded-2xl p-7 flex items-center gap-6 bg-gradient-to-br from-brand-500 to-purple-500"
+          className="rounded-2xl p-7 flex items-center gap-6 bg-gradient-to-r from-brand-500 to-[#7C3AED]"
         >
           {/* Left Content */}
           <div className="flex-1 flex flex-col gap-3">
@@ -159,7 +159,7 @@ const AgentMarketPage: React.FC = () => {
           </div>
 
           {/* Right Icon */}
-          <div className="w-[200px] h-[140px] rounded-xl bg-white/20 flex items-center justify-center">
+          <div className="w-[200px] h-[140px] rounded-xl bg-white/[0.13] flex items-center justify-center">
             <Sparkles className="w-20 h-20 text-white/80" />
           </div>
         </div>

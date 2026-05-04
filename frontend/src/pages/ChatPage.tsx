@@ -9,9 +9,14 @@ import {
   Sparkles,
   Loader2,
   Wrench,
+  Search,
+  ChevronDown,
+  Paperclip,
+  X,
+  PanelRight,
+  MoreHorizontal,
 } from 'lucide-react'
 import { Sidebar } from '../components/layout/Sidebar'
-import { Badge } from '../components/ui/Badge'
 import {
   listSessions,
   getSession,
@@ -208,6 +213,12 @@ const ChatPage: React.FC = () => {
 
   // Agent dropdown
   const [showAgentDropdown, setShowAgentDropdown] = useState(false)
+
+  // Session search
+  const [sessionSearch, setSessionSearch] = useState('')
+
+  // Context panel
+  const [showContextPanel, setShowContextPanel] = useState(true)
 
   // ── Fetch sessions ──
 
@@ -417,7 +428,13 @@ const ChatPage: React.FC = () => {
 
   // ── Session groups ──
 
-  const grouped = groupSessions(sessions)
+  const filteredSessions = sessionSearch
+    ? sessions.filter((s) =>
+        (s.title ?? '').toLowerCase().includes(sessionSearch.toLowerCase()),
+      )
+    : sessions
+
+  const grouped = groupSessions(filteredSessions)
 
   const activeSession = sessions.find((s) => s.id === activeSessionId)
   const currentAgent = agents.find((a) => a.id === activeSession?.currentAgentId)
@@ -435,11 +452,23 @@ const ChatPage: React.FC = () => {
         <div className="w-[260px] bg-white border-r border-border-subtle p-3 flex flex-col gap-3 overflow-y-auto">
           <button
             onClick={handleNewChat}
-            className="flex items-center justify-center gap-2 w-full py-2.5 bg-brand-500 text-white rounded-lg font-semibold text-sm hover:bg-brand-600 transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-2.5 bg-brand-500 text-white rounded-lg font-semibold text-[13px] hover:bg-brand-600 transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>新建对话</span>
           </button>
+
+          {/* Session Search */}
+          <div className="flex items-center gap-2 px-2.5 py-2 bg-gray-100 rounded-md">
+            <Search className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
+            <input
+              type="text"
+              placeholder="搜索对话..."
+              value={sessionSearch}
+              onChange={(e) => setSessionSearch(e.target.value)}
+              className="flex-1 bg-transparent text-xs outline-none placeholder:text-text-tertiary"
+            />
+          </div>
 
           {sessionsLoading && (
             <div className="flex justify-center py-8">
@@ -476,52 +505,73 @@ const ChatPage: React.FC = () => {
         {/* Chat Area */}
         <div className="flex-1 flex flex-col bg-bg-canvas">
           {/* Top Bar */}
-          <div className="h-14 bg-white border-b border-border-subtle px-8 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="relative">
-                <button
-                  onClick={() => setShowAgentDropdown(!showAgentDropdown)}
-                  className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  <Bot className="w-4 h-4 text-brand-500" />
-                  <span className="text-sm font-medium text-text-primary">
-                    {currentAgent?.name ?? '选择智能体'}
-                  </span>
-                </button>
+          <div className="h-14 bg-white border-b border-border-subtle px-6 flex items-center gap-3">
+            {/* Agent Selector - Pill Style */}
+            <div className="relative">
+              <button
+                onClick={() => setShowAgentDropdown(!showAgentDropdown)}
+                className="flex items-center gap-2.5 px-3 py-1.5 bg-gray-100 rounded-[20px] hover:bg-gray-200 transition-colors"
+              >
+                <div className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center">
+                  <Bot className="w-3.5 h-3.5 text-white" />
+                </div>
+                <span className="text-[13px] font-semibold text-text-primary">
+                  {currentAgent?.name ?? '选择智能体'}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+              </button>
 
-                {showAgentDropdown && (
-                  <div className="absolute top-full left-0 mt-1 w-[200px] bg-white border border-border-subtle rounded-md shadow-lg z-10 max-h-64 overflow-y-auto">
-                    {agents.map((agent) => (
-                      <button
-                        key={agent.id}
-                        onClick={() => handleSwitchAgent(agent.id, agent.name)}
-                        className={`w-full px-3 py-2.5 text-left text-sm hover:bg-gray-50 ${
-                          currentAgent?.id === agent.id ? 'bg-brand-50 text-brand-500' : 'text-text-primary'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2">
-                          <Bot className="w-4 h-4" />
-                          <span>{agent.name}</span>
-                        </div>
-                      </button>
-                    ))}
-                    {agents.length === 0 && (
-                      <div className="px-3 py-4 text-xs text-text-tertiary text-center">
-                        暂无可用智能体
+              {showAgentDropdown && (
+                <div className="absolute top-full left-0 mt-1 w-[220px] bg-white border border-border-subtle rounded-lg shadow-lg z-10 max-h-64 overflow-y-auto">
+                  {agents.map((agent) => (
+                    <button
+                      key={agent.id}
+                      onClick={() => handleSwitchAgent(agent.id, agent.name)}
+                      className={`w-full px-3 py-2.5 text-left text-sm hover:bg-gray-50 ${
+                        currentAgent?.id === agent.id ? 'bg-brand-50 text-brand-500' : 'text-text-primary'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4" />
+                        <span>{agent.name}</span>
                       </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {activeSession && (
-                <Badge variant="info">在线</Badge>
+                    </button>
+                  ))}
+                  {agents.length === 0 && (
+                    <div className="px-3 py-4 text-xs text-text-tertiary text-center">
+                      暂无可用智能体
+                    </div>
+                  )}
+                </div>
               )}
+            </div>
+
+            {/* Session Title */}
+            {activeSession && (
+              <span className="text-sm font-medium text-text-secondary flex-1">
+                {activeSession.title ?? '新对话'}
+              </span>
+            )}
+            {!activeSession && <div className="flex-1" />}
+
+            {/* Top Right Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowContextPanel(!showContextPanel)}
+                className={`w-8 h-8 rounded-md flex items-center justify-center hover:bg-gray-100 transition-colors ${
+                  showContextPanel ? 'text-brand-500' : 'text-gray-600'
+                }`}
+              >
+                <PanelRight className="w-4 h-4" />
+              </button>
+              <button className="w-8 h-8 rounded-md flex items-center justify-center text-gray-600 hover:bg-gray-100 transition-colors">
+                <MoreHorizontal className="w-4 h-4" />
+              </button>
             </div>
           </div>
 
           {/* Message Area */}
-          <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-4">
+          <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-5">
             {messagesLoading && (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-text-tertiary" />
@@ -544,8 +594,14 @@ const ChatPage: React.FC = () => {
           </div>
 
           {/* Input Area */}
-          <div className="px-8 pb-6 pt-4 bg-white border-t border-border-subtle">
+          <div className="px-6 pb-6 pt-4 bg-white border-t border-border-subtle">
             <div className="flex items-end gap-3">
+              {/* Attach Button */}
+              <button className="w-9 h-9 flex items-center justify-center rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-gray-100 transition-colors flex-shrink-0">
+                <Paperclip className="w-4 h-4" />
+              </button>
+
+              {/* Text Input */}
               <div className="flex-1 flex items-center gap-2 px-4 py-3 bg-white border border-border-subtle rounded-lg">
                 <textarea
                   value={messageInput}
@@ -563,12 +619,22 @@ const ChatPage: React.FC = () => {
                     }
                   }}
                 />
+                {/* Clear Button */}
+                {messageInput && (
+                  <button
+                    onClick={() => setMessageInput('')}
+                    className="text-text-tertiary hover:text-text-secondary transition-colors"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
               </div>
 
+              {/* Send Button */}
               <button
                 onClick={handleSendMessage}
                 disabled={!messageInput.trim() || sending}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors ${
+                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${
                   messageInput.trim() && !sending
                     ? 'bg-brand-500 text-white hover:bg-brand-600'
                     : 'bg-gray-100 text-gray-400'
@@ -585,7 +651,8 @@ const ChatPage: React.FC = () => {
         </div>
 
         {/* Context Panel */}
-        <div className="w-[300px] bg-white border-l border-border-subtle p-4 flex flex-col gap-5 overflow-y-auto">
+        {showContextPanel && (
+        <div className="w-[300px] bg-white border-l border-border-subtle p-5 flex flex-col gap-5 overflow-y-auto">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-brand-500" />
@@ -645,6 +712,7 @@ const ChatPage: React.FC = () => {
             </div>
           )}
         </div>
+        )}
       </div>
     </div>
   )

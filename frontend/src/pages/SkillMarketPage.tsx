@@ -120,9 +120,9 @@ const SkillMarketPage: React.FC = () => {
     >
       <div className="p-8 flex flex-col gap-5 h-full overflow-auto">
         {/* Hero Banner */}
-        <div className="rounded-xl bg-purple-500 p-6 flex flex-col gap-1.5">
-          <h1 className="text-lg font-bold text-white">发现可复用的 Skill</h1>
-          <p className="text-sm text-white/80">
+        <div className="rounded-xl bg-[#8B5CF6] p-6 flex flex-col gap-1.5">
+          <h1 className="text-[22px] font-bold text-white">发现可复用的 Skill</h1>
+          <p className="text-[13px] text-white/80">
             为你的智能体添加即插即用的原子能力 · 收录 {skills.length} 个社区 Skill
           </p>
         </div>

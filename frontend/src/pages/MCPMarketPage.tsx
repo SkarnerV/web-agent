@@ -153,7 +153,7 @@ const MCPMarketPage: React.FC = () => {
       <div className="p-8 flex flex-col gap-5 h-full overflow-auto">
         {/* Header */}
         <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-bold text-text-primary">MCP 市场</h1>
+          <h1 className="text-2xl font-bold text-text-primary">MCP 市场</h1>
           <p className="text-sm text-text-secondary">官方认证的 MCP Server 集合 · 一键接入</p>
         </div>
 
