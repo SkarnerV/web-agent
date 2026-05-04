@@ -1,14 +1,14 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Settings, Users, Rocket, FileText, Check, Bot, Sparkles, Zap, MessageSquare, Save } from 'lucide-react'
+import { ChevronLeft, Settings, Users, Rocket, FileText, Check, Bot, Sparkles, Zap, MessageSquare, Save, Loader2 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { getAgent, updateAgent } from '../api/agent'
+import { ApiError } from '../api/client'
 
-// Step types
 type StepType = 1 | 2 | 3 | 4
 
-// Icon options for agent
 const iconOptions = [
   { id: 'bot', icon: Bot, bg: 'bg-brand-50', color: 'text-brand-500' },
   { id: 'sparkles', icon: Sparkles, bg: 'bg-warning-50', color: 'text-warning-500' },
@@ -16,23 +16,12 @@ const iconOptions = [
   { id: 'message', icon: MessageSquare, bg: 'bg-error-50', color: 'text-error-500' },
 ]
 
-// Type options for agent
 const typeOptions = [
   { id: 'chat', label: '对话型', description: '适合问答、咨询、客服场景' },
   { id: 'workflow', label: '工作流型', description: '适合自动化任务执行' },
   { id: 'analysis', label: '分析型', description: '适合数据分析、报告生成' },
 ]
 
-// Mock agent data
-const mockAgentData = {
-  id: '1',
-  name: '客服机器人-v2',
-  description: '智能客服助手，自动处理用户咨询，支持多轮对话和意图识别。新增情感分析功能。',
-  icon: 'bot',
-  type: 'chat',
-}
-
-// Steps column component
 const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
   const steps = [
     { step: 1, icon: FileText, label: '基本信息' },
@@ -48,9 +37,7 @@ const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
         <div
           key={s.step}
           className={`flex items-center gap-2.5 p-2.5 px-3 rounded-lg transition-colors ${
-            activeStep === s.step
-              ? 'bg-brand-50'
-              : 'bg-transparent'
+            activeStep === s.step ? 'bg-brand-50' : 'bg-transparent'
           }`}
         >
           <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
@@ -73,34 +60,82 @@ const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
           </span>
         </div>
       ))}
-      {/* Save tip */}
       <div className="mt-2 p-4 px-3 bg-gray-50 rounded-lg flex flex-col gap-1">
         <span className="text-xs text-text-tertiary">💡 修改会自动保存</span>
-        <span className="text-xs text-text-tertiary">上次保存: 刚刚</span>
       </div>
     </div>
   )
 }
 
-// AgentEditPage Component
 const AgentEditPage: React.FC = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
-  const [formData, setFormData] = useState(mockAgentData)
-  const activeStep: StepType = 1
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    icon: 'bot',
+    type: 'chat',
+    version: 0,
+  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!id) return
+    ;(async () => {
+      try {
+        const agent = await getAgent(id)
+        setFormData({
+          name: agent.name,
+          description: agent.description ?? '',
+          icon: agent.avatar ?? 'bot',
+          type: 'chat',
+          version: agent.version,
+        })
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : 'Failed to load agent')
+      } finally {
+        setLoading(false)
+      }
+    })()
+  }, [id])
 
   const handleBack = () => {
     navigate('/agents')
   }
 
-  const handleSave = () => {
-    console.log('Save:', formData)
-    navigate('/agents')
+  const handleSave = async () => {
+    if (!id || !formData.name.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      await updateAgent(id, {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        avatar: formData.icon,
+        version: formData.version,
+      })
+      navigate('/agents')
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '保存失败，请重试')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }, { label: '编辑' }]}>
+        <div className="flex items-center justify-center h-64">
+          <div className="w-6 h-6 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </Layout>
+    )
   }
 
   return (
     <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }, { label: '编辑' }]}>
-      {/* TopBar */}
       <div className="h-14 bg-white border-b border-border-subtle flex items-center justify-between px-6">
         <div className="flex items-center gap-3">
           <button
@@ -118,23 +153,32 @@ const AgentEditPage: React.FC = () => {
           <Button variant="secondary" onClick={() => navigate(`/agents/debug/${id}`)}>
             调试
           </Button>
-          <Button variant="primary" icon={<Save className="w-4 h-4" />} onClick={handleSave}>
-            保存
+          <Button
+            variant="primary"
+            icon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            onClick={handleSave}
+            disabled={!formData.name.trim() || saving}
+          >
+            {saving ? '保存中...' : '保存'}
           </Button>
         </div>
       </div>
 
-      {/* Body */}
       <div className="flex-1 flex gap-5 p-8 overflow-auto">
-        {/* Steps Column */}
-        <StepsColumn activeStep={activeStep} />
+        <StepsColumn activeStep={1} />
 
-        {/* Form Area */}
         <div className="flex-1 p-8 overflow-auto">
           <div className="p-8 bg-white rounded-xl border border-border-subtle flex flex-col gap-5 max-w-[600px]">
-            {/* Name */}
+            {error && (
+              <div className="px-3 py-2 bg-error-50 border border-error-200 rounded text-sm text-error-500">
+                {error}
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-primary">智能体名称</label>
+              <label className="text-sm font-medium text-text-primary">
+                智能体名称 <span className="text-error-500">*</span>
+              </label>
               <Input
                 placeholder="输入智能体名称"
                 value={formData.name}
@@ -142,7 +186,6 @@ const AgentEditPage: React.FC = () => {
               />
             </div>
 
-            {/* Description */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-text-primary">描述</label>
               <textarea
@@ -153,7 +196,6 @@ const AgentEditPage: React.FC = () => {
               />
             </div>
 
-            {/* Icon Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-text-primary">图标</label>
               <div className="flex items-center gap-3">
@@ -176,7 +218,6 @@ const AgentEditPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Type Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-text-primary">类型</label>
               <div className="flex items-center gap-3">

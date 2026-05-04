@@ -4,7 +4,31 @@
       "WebFetch(domain:code.coze.cn)",
       "WebSearch",
       "Bash(git clone:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(python3 *)",
+      "Bash(pip install *)",
+      "Bash(pip3 install *)",
+      "Bash(docker compose *)",
+      "Bash(./mvnw clean *)",
+      "Bash(chmod +x /Users/skarner/Documents/codebase/web-agent/backend/mvnw)",
+      "Bash(java -version)",
+      "Bash(/usr/libexec/java_home -V)",
+      "Bash(brew install *)",
+      "Bash(export JAVA_HOME=\"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\")",
+      "Bash(export PATH=\"$JAVA_HOME/bin:$PATH\")",
+      "Bash(./mvnw spring-boot:run -pl ap-app -Dspring-boot.run.profiles=local)",
+      "Bash(curl -s http://localhost:8080/api/v1/health)",
+      "Bash(break)",
+      "Bash(./mvnw install *)",
+      "Bash(exit 0)",
+      "Bash(exit 1)",
+      "Bash(npm install *)",
+      "Bash(npx tsc *)",
+      "Bash(npx vite *)",
+      "Bash(curl -s http://localhost:3000/api/v1/agents?page=1\\\\&page_size=2)",
+      "Bash(curl -s \"http://localhost:3000/api/v1/agents?page=1&page_size=2\")",
+      "Bash(curl -s \"http://localhost:3000/api/v1/chat/sessions?page=1&page_size=2\")",
+      "Bash(curl -s \"http://localhost:8080/api/v1/health\")"
     ]
   }
 }

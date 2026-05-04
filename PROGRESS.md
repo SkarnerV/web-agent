@@ -2,7 +2,7 @@
 
 > Agent Platform - Web 智能体对话平台开发进度追踪
 
-## Session: 2026-04-30
+## Session: 2026-05-04
 
 ### Tasks 1-4: Core Foundation (Completed)
 
@@ -158,7 +158,7 @@ curl http://localhost:8080/api/v1/health  # Virtual Thread 验证
 - `POST /api/v1/chat/sessions/{id}/messages` - 发送消息 (SSE)
 - `POST /api/v1/chat/sessions/{id}/continue` - 继续执行 (SSE)
 - `POST /api/v1/chat/sessions/{sessionId}/messages/{msgId}/regenerate` - 重新生成 (SSE)
-- `PUT /api/v1/chat/sessions/{id}/agent` - 切换 Agent
+- `POST /api/v1/chat/sessions/{id}/switch-agent` - 切换 Agent
 
 **Test Coverage**: 28 单元测试通过
 
@@ -216,15 +216,24 @@ curl http://localhost:8080/api/v1/health  # Virtual Thread 验证
 
 ---
 
-## Next Steps
+## Session: 2026-05-04 — E2E Validation
 
-1. **Task 12.1**: 添加 SpringDoc OpenAPI 依赖，配置 Swagger UI
-2. **Task 5**: 实现 ToolRegistry + ModelRegistry
-3. **Task 6-8**: 完成 Skill/MCP/知识库模块
-4. **前端对接**: 测试 API 接口，对接 React 前端
+- **E2E validation**: `scripts/e2e_validate.py` passed **62/62** (1 skipped: step_limit needs real LLM)
+- Backend verified ready for frontend integration
+- Java 21 + Docker infrastructure confirmed working
 
 ---
 
-**Last Updated**: 2026-04-30  
-**Total Commits**: 4 major commits (Tasks 1-4)  
-**Test Coverage**: 51 tests passing
+## Next Steps
+
+1. **Frontend对接**: Backend verified ready — start React frontend integration
+2. **Task 12.1**: 添加 SpringDoc OpenAPI 依赖，配置 Swagger UI
+3. **Task 5**: 实现 ToolRegistry + ModelRegistry
+4. **Task 6-8**: 完成 Skill/MCP/知识库模块
+
+---
+
+**Last Updated**: 2026-05-04  
+**Total Commits**: 6 commits  
+**E2E Validation**: 62/62 passed  
+**Unit Tests**: 51 tests passing

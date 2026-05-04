@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Settings, Users, Rocket, FileText, Check, Bot, Sparkles, Zap, MessageSquare } from 'lucide-react'
+import { ChevronLeft, Settings, Users, Rocket, FileText, Check, Bot, Sparkles, Zap, MessageSquare, Loader2 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { createAgent } from '../api/agent'
+import { ApiError } from '../api/client'
 
-// Step types
 type StepType = 1 | 2 | 3 | 4
 
-// Icon options for agent
 const iconOptions = [
   { id: 'bot', icon: Bot, bg: 'bg-brand-50', color: 'text-brand-500' },
   { id: 'sparkles', icon: Sparkles, bg: 'bg-warning-50', color: 'text-warning-500' },
@@ -16,14 +16,12 @@ const iconOptions = [
   { id: 'message', icon: MessageSquare, bg: 'bg-error-50', color: 'text-error-500' },
 ]
 
-// Type options for agent
 const typeOptions = [
   { id: 'chat', label: '对话型', description: '适合问答、咨询、客服场景' },
   { id: 'workflow', label: '工作流型', description: '适合自动化任务执行' },
   { id: 'analysis', label: '分析型', description: '适合数据分析、报告生成' },
 ]
 
-// Steps column component
 const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
   const steps = [
     { step: 1, icon: FileText, label: '基本信息' },
@@ -39,9 +37,7 @@ const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
         <div
           key={s.step}
           className={`flex items-center gap-2.5 p-2.5 px-3 rounded-lg transition-colors ${
-            activeStep === s.step
-              ? 'bg-brand-50'
-              : 'bg-transparent'
+            activeStep === s.step ? 'bg-brand-50' : 'bg-transparent'
           }`}
         >
           <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
@@ -64,16 +60,14 @@ const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
           </span>
         </div>
       ))}
-      {/* Save tip */}
       <div className="mt-2 p-4 px-3 bg-gray-50 rounded-lg flex flex-col gap-1">
-        <span className="text-xs text-text-tertiary">💡 草稿自动保存</span>
-        <span className="text-xs text-text-tertiary">上次保存: 10分钟前</span>
+        <span className="text-xs text-text-tertiary">💡 填写基本信息即可创建</span>
+        <span className="text-xs text-text-tertiary">工具与协作可后续配置</span>
       </div>
     </div>
   )
 }
 
-// AgentCreatePage Component
 const AgentCreatePage: React.FC = () => {
   const navigate = useNavigate()
   const [formData, setFormData] = useState({
@@ -82,23 +76,35 @@ const AgentCreatePage: React.FC = () => {
     icon: 'bot',
     type: 'chat',
   })
-  const activeStep: StepType = 1
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleBack = () => {
     navigate('/agents')
   }
 
-  const handleNextStep = () => {
-    navigate('/agents/tools')
+  const handleSaveDraft = async () => {
+    if (!formData.name.trim()) return
+    setSaving(true)
+    setError(null)
+    try {
+      await createAgent({
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        avatar: formData.icon,
+      })
+      navigate('/agents')
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '创建失败，请重试')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const handleSaveDraft = () => {
-    console.log('Save draft:', formData)
-  }
+  const canSave = formData.name.trim().length > 0
 
   return (
     <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }, { label: '创建' }]}>
-      {/* TopBar */}
       <div className="h-14 bg-white border-b border-border-subtle flex items-center justify-between px-6">
         <div className="flex items-center gap-3">
           <button
@@ -111,22 +117,33 @@ const AgentCreatePage: React.FC = () => {
         </div>
         <span className="text-sm font-semibold text-text-primary flex-1 text-center">创建智能体</span>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={handleSaveDraft}>保存草稿</Button>
-          <Button variant="primary" onClick={handleNextStep}>下一步</Button>
+          <Button variant="secondary" onClick={handleBack}>取消</Button>
+          <Button
+            variant="primary"
+            onClick={handleSaveDraft}
+            disabled={!canSave || saving}
+            icon={saving ? <Loader2 className="w-4 h-4 animate-spin" /> : undefined}
+          >
+            {saving ? '创建中...' : '创建'}
+          </Button>
         </div>
       </div>
 
-      {/* Body */}
       <div className="flex-1 flex gap-5 p-8 overflow-auto">
-        {/* Steps Column */}
-        <StepsColumn activeStep={activeStep} />
+        <StepsColumn activeStep={1} />
 
-        {/* Form Area */}
         <div className="flex-1 p-8">
           <div className="p-8 bg-white rounded-xl border border-border-subtle flex flex-col gap-5 max-w-[600px]">
-            {/* Name */}
+            {error && (
+              <div className="px-3 py-2 bg-error-50 border border-error-200 rounded text-sm text-error-500">
+                {error}
+              </div>
+            )}
+
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium text-text-primary">智能体名称</label>
+              <label className="text-sm font-medium text-text-primary">
+                智能体名称 <span className="text-error-500">*</span>
+              </label>
               <Input
                 placeholder="输入智能体名称"
                 value={formData.name}
@@ -134,7 +151,6 @@ const AgentCreatePage: React.FC = () => {
               />
             </div>
 
-            {/* Description */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-text-primary">描述</label>
               <textarea
@@ -145,7 +161,6 @@ const AgentCreatePage: React.FC = () => {
               />
             </div>
 
-            {/* Icon Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-text-primary">图标</label>
               <div className="flex items-center gap-3">
@@ -168,7 +183,6 @@ const AgentCreatePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Type Selection */}
             <div className="flex flex-col gap-2">
               <label className="text-sm font-medium text-text-primary">类型</label>
               <div className="flex items-center gap-3">
