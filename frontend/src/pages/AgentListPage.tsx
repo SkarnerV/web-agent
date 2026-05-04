@@ -40,6 +40,8 @@ const AgentListPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [filterStatus, setFilterStatus] = useState<string | null>(null)
   const [agents, setAgents] = useState<AgentSummaryVO[]>([])
   const [total, setTotal] = useState(0)
   const [draftCount, setDraftCount] = useState(0)
@@ -60,6 +62,8 @@ const AgentListPage: React.FC = () => {
       }
       if (activeTab === 'published') {
         params.status = 'PUBLISHED'
+      } else if (filterStatus) {
+        params.status = filterStatus as AgentStatus
       }
       const result = await listAgents(params)
       setAgents(result.data)
@@ -166,16 +170,38 @@ const AgentListPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {/* Filter Dropdowns */}
-          <div className="flex items-center gap-2">
-            <button className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-border-subtle rounded text-xs text-text-secondary hover:border-border-strong transition-colors">
-              筛选
+          {/* Filter Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowFilterDropdown(!showFilterDropdown)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-border-subtle rounded text-xs text-text-secondary hover:border-border-strong transition-colors"
+            >
+              筛选{filterStatus ? '中' : ''}
               <ChevronDown className="w-3 h-3 text-text-tertiary" />
             </button>
-            <button className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-border-subtle rounded text-xs text-text-secondary hover:border-border-strong transition-colors">
-              更新时间
-              <ChevronDown className="w-3 h-3 text-text-tertiary" />
-            </button>
+            {showFilterDropdown && (
+              <div className="absolute top-full right-0 mt-1 w-[160px] bg-white border border-border-subtle rounded-md shadow-lg z-10">
+                {[
+                  { label: '全部状态', value: null },
+                  { label: '已发布', value: 'PUBLISHED' },
+                  { label: '草稿', value: 'DRAFT' },
+                  { label: '已归档', value: 'ARCHIVED' },
+                ].map((opt) => (
+                  <button
+                    key={opt.label}
+                    onClick={() => {
+                      setFilterStatus(opt.value)
+                      setShowFilterDropdown(false)
+                    }}
+                    className={`w-full px-3 py-2 text-left text-[13px] hover:bg-gray-50 first:rounded-t-md last:rounded-b-md ${
+                      filterStatus === opt.value ? 'bg-brand-50 text-brand-500' : 'text-text-secondary'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 

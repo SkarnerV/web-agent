@@ -80,6 +80,7 @@ const AgentEditPage: React.FC = () => {
     description: '',
     icon: 'bot',
     model: 'claude-sonnet',
+    maxSteps: 10,
     prompt: '',
     version: 0,
   })
@@ -96,8 +97,9 @@ const AgentEditPage: React.FC = () => {
           name: agent.name,
           description: agent.description ?? '',
           icon: agent.avatar ?? 'bot',
-          model: 'claude-sonnet',
-          prompt: '',
+          model: agent.modelId ?? 'claude-sonnet',
+          maxSteps: agent.maxSteps || 10,
+          prompt: agent.systemPrompt ?? '',
           version: agent.version,
         })
       } catch (e) {
@@ -155,7 +157,7 @@ const AgentEditPage: React.FC = () => {
           <Button variant="secondary" onClick={handleSave} disabled={saving}>
             {saving ? '保存中...' : '保存草稿'}
           </Button>
-          <Button variant="primary" onClick={handleSave} disabled={saving}>
+          <Button variant="primary" onClick={() => id && navigate(`/agents/publish`)} disabled={saving}>
             发布
           </Button>
         </div>
@@ -243,10 +245,15 @@ const AgentEditPage: React.FC = () => {
                 </select>
               </div>
               <div className="flex-1 flex flex-col gap-2">
-                <label className="text-[13px] font-medium text-text-primary">当前步骤</label>
-                <div className="w-full px-3 py-2.5 bg-gray-50 border border-border-strong rounded-md text-sm text-text-secondary">
-                  基本信息
-                </div>
+                <label className="text-[13px] font-medium text-text-primary">最大步骤数</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={formData.maxSteps}
+                  onChange={(e) => setFormData({ ...formData, maxSteps: parseInt(e.target.value) || 1 })}
+                  className="w-full px-3 py-2.5 bg-white border border-border-strong rounded-md text-sm text-text-primary outline-none focus:border-brand-500"
+                />
               </div>
             </div>
 

@@ -79,6 +79,7 @@ const AgentCreatePage: React.FC = () => {
     description: '',
     icon: 'bot',
     model: 'claude-sonnet',
+    maxSteps: 10,
     prompt: '',
   })
   const [saving, setSaving] = useState(false)
@@ -126,7 +127,7 @@ const AgentCreatePage: React.FC = () => {
           <Button variant="secondary" onClick={handleSaveDraft} disabled={!canSave || saving}>
             {saving ? '保存中...' : '保存草稿'}
           </Button>
-          <Button variant="primary" onClick={handleSaveDraft} disabled={!canSave || saving}>
+          <Button variant="primary" onClick={() => navigate('/agents/publish')} disabled={!canSave}>
             发布
           </Button>
         </div>
@@ -215,10 +216,15 @@ const AgentCreatePage: React.FC = () => {
                 </select>
               </div>
               <div className="flex-1 flex flex-col gap-2">
-                <label className="text-[13px] font-medium text-text-primary">当前步骤</label>
-                <div className="w-full px-3 py-2.5 bg-gray-50 border border-border-strong rounded-md text-sm text-text-secondary">
-                  基本信息
-                </div>
+                <label className="text-[13px] font-medium text-text-primary">最大步骤数</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={formData.maxSteps}
+                  onChange={(e) => setFormData({ ...formData, maxSteps: parseInt(e.target.value) || 1 })}
+                  className="w-full px-3 py-2.5 bg-white border border-border-strong rounded-md text-sm text-text-primary outline-none focus:border-brand-500"
+                />
               </div>
             </div>
 

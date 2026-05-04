@@ -1,8 +1,15 @@
 import React from 'react'
+import { Bot, Sparkles, Zap, MessageSquare, Wrench, Users } from 'lucide-react'
 import { Badge } from './Badge'
 import { Button } from './Button'
 
-// Types
+const iconMap: Record<string, React.FC<{ className?: string }>> = {
+  bot: Bot,
+  sparkles: Sparkles,
+  zap: Zap,
+  message: MessageSquare,
+}
+
 export interface AssetCardProps {
   id: string
   name: string
@@ -17,29 +24,43 @@ export interface AssetCardProps {
   onEdit?: () => void
 }
 
-// AssetCard Component
+const statusLabel: Record<string, string> = {
+  draft: '草稿',
+  published: '已发布',
+  debugging: '调试中',
+  error: '错误',
+  info: '进行中',
+}
+
 export const AssetCard: React.FC<AssetCardProps> = ({
   name,
   description,
   iconBg = 'bg-brand-50',
-  iconText = name[0] || 'A',
+  iconText = 'bot',
   status,
-  toolCount = 5,
-  collabCount = 2,
+  toolCount = 0,
+  collabCount = 0,
   updatedAt = '2d 前',
   onUse,
   onEdit,
 }) => {
+  const IconComponent = iconMap[iconText] ?? Bot
+  const iconColorClass = iconBg === 'bg-brand-50' ? 'text-brand-500'
+    : iconBg === 'bg-warning-50' ? 'text-warning-500'
+    : iconBg === 'bg-success-50' ? 'text-success-500'
+    : iconBg === 'bg-error-50' ? 'text-error-500'
+    : 'text-gray-600'
+
   return (
-    <div className="w-[300px] p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3">
+    <div className="flex-1 p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3">
       {/* Header Row */}
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-lg font-semibold ${iconBg}`}>
-          {iconText}
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconBg}`}>
+          <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
         </div>
         <div className="flex-1 flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-text-primary">{name}</span>
-          {status && <Badge variant={status}>{status === 'draft' ? '草稿' : status === 'published' ? '已发布' : status === 'debugging' ? '调试中' : status === 'error' ? '错误' : '进行中'}</Badge>}
+          {status && <Badge variant={status}>{statusLabel[status]}</Badge>}
         </div>
       </div>
 
@@ -50,8 +71,14 @@ export const AssetCard: React.FC<AssetCardProps> = ({
 
       {/* Meta */}
       <div className="flex items-center gap-3 text-sm text-text-tertiary">
-        <span>🔧 工具 {toolCount}</span>
-        <span>🧩 协作 {collabCount}</span>
+        <span className="flex items-center gap-1">
+          <Wrench className="w-3.5 h-3.5" />
+          工具 {toolCount}
+        </span>
+        <span className="flex items-center gap-1">
+          <Users className="w-3.5 h-3.5" />
+          协作 {collabCount}
+        </span>
         <span>· {updatedAt}</span>
       </div>
 

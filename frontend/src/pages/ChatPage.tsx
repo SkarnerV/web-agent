@@ -72,20 +72,27 @@ const SessionItem: React.FC<{
   time: string
   active?: boolean
   onClick: () => void
-}> = ({ title, agent, time, active, onClick }) => (
+  onDelete: () => void
+}> = ({ title, agent, time, active, onClick, onDelete }) => (
   <button
     onClick={onClick}
-    className={`w-full p-2.5 rounded-lg text-left transition-colors ${
+    className={`w-full p-2.5 rounded-lg text-left transition-colors group relative ${
       active ? 'bg-brand-50' : 'hover:bg-gray-50'
     }`}
   >
     <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-text-primary truncate">{title || '新对话'}</span>
+      <span className="text-sm font-medium text-text-primary truncate pr-5">{title || '新对话'}</span>
       <div className="flex items-center gap-2">
         <span className="text-xs text-text-tertiary">{agent}</span>
         <span className="text-xs text-text-tertiary">{formatTime(time)}</span>
       </div>
     </div>
+    <button
+      onClick={(e) => { e.stopPropagation(); onDelete() }}
+      className="absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-error-500 hover:bg-error-50 opacity-0 group-hover:opacity-100 transition-all"
+    >
+      <X className="w-3 h-3" />
+    </button>
   </button>
 )
 
@@ -98,7 +105,17 @@ const MessageBubble: React.FC<{
   toolCalls?: string
   toolResults?: string
   status?: string
-}> = ({ role, content, time, avatar, agentName, toolCalls, toolResults, status }) => {
+  onRegenerate?: () => void
+}> = ({ role, content, time, avatar, agentName, toolCalls, toolResults, status, onRegenerate }) => {
+  const [copied, setCopied] = React.useState(false)
+
+  const handleCopy = () => {
+    if (content) {
+      navigator.clipboard.writeText(content)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
   if (role === 'tool') {
     return (
       <div className="flex gap-3 justify-center">
@@ -138,21 +155,37 @@ const MessageBubble: React.FC<{
             )}
           </div>
         )}
-        {toolCalls && (
-          <div className="text-xs text-text-tertiary bg-gray-50 px-2 py-1 rounded">
-            调用工具: {toolCalls}
+        {role === 'assistant' && status === 'COMPLETED' && content && (
+          <div className="flex items-center gap-3 text-xs text-text-tertiary">
+            <button onClick={handleCopy} className="hover:text-brand-500 transition-colors">
+              {copied ? '已复制' : '复制'}
+            </button>
+            <span>·</span>
+            <button className="hover:text-brand-500 transition-colors">分享</button>
+            {onRegenerate && (
+              <>
+                <span>·</span>
+                <button onClick={onRegenerate} className="hover:text-brand-500 transition-colors">重新生成</button>
+              </>
+            )}
           </div>
         )}
-        {toolResults && (
-          <div className="text-xs text-text-tertiary bg-gray-50 px-2 py-1 rounded max-h-20 overflow-auto">
-            工具结果: {toolResults}
+        {toolCalls && (
+          <div className="p-3 bg-gray-50 border border-border-subtle rounded-lg flex flex-col gap-1.5 w-full">
+            <div className="flex items-center gap-2">
+              <Wrench className="w-3.5 h-3.5 text-text-tertiary" />
+              <span className="text-xs font-medium text-text-secondary">调用 {toolCalls}</span>
+            </div>
+            {toolResults && (
+              <span className="text-xs text-text-tertiary">{toolResults}</span>
+            )}
           </div>
         )}
         <span className="text-xs text-text-tertiary">{formatTime(time)}</span>
       </div>
       {role === 'user' && (
-        <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center shrink-0">
-          <span className="text-sm font-medium text-text-primary">{avatar}</span>
+        <div className="w-8 h-8 rounded-full bg-gray-700 flex items-center justify-center shrink-0">
+          <span className="text-[13px] font-semibold text-white">{avatar}</span>
         </div>
       )}
     </div>
@@ -279,7 +312,14 @@ const ChatPage: React.FC = () => {
   const handleNewChat = async () => {
     setActiveSessionId('')
     setMessages([])
-    // Wait for user to pick an agent or use default
+  }
+
+  const handleDeleteSession = (sessionId: string) => {
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+    if (activeSessionId === sessionId) {
+      setActiveSessionId('')
+      setMessages([])
+    }
   }
 
   // ── Send message via SSE ──
@@ -489,6 +529,7 @@ const ChatPage: React.FC = () => {
                     time={s.updatedAt}
                     active={activeSessionId === s.id}
                     onClick={() => loadSession(s.id)}
+                    onDelete={() => handleDeleteSession(s.id)}
                   />
                 ))}
               </div>
