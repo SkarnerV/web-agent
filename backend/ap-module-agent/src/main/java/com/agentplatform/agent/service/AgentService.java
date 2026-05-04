@@ -223,7 +223,7 @@ public class AgentService {
 
         AgentEntity copy = new AgentEntity();
         copy.setOwnerId(currentUserId);
-        copy.setName(source.getName() + "-Copy");
+        copy.setName(source.getName() + "-副本");
         copy.setDescription(source.getDescription());
         copy.setAvatar(source.getAvatar());
         copy.setSystemPrompt(source.getSystemPrompt());
