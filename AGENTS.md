@@ -84,8 +84,14 @@ docker compose -f docker/docker-compose.infra.yml up -d
 # 编译全量
 ./mvnw clean package -DskipTests
 
-# 运行单元测试
-./mvnw test
+# 运行全部单元测试（仅测试，不安装 JAR 到本地仓库）
+./mvnw test -pl ap-common/common-core,ap-common/common-mybatis,ap-common/common-redis,ap-module-agent,ap-module-chat,ap-module-asset,ap-module-market,ap-module-file
+
+# 运行全部测试（含 ap-app 集成测试）— 推荐
+./mvnw clean verify
+
+# 等价替代: install 先更新本地 JAR，再 test
+./mvnw install -DskipTests && ./mvnw test
 
 # 运行集成测试
 ./mvnw verify -Dgroups=integration
@@ -93,6 +99,8 @@ docker compose -f docker/docker-compose.infra.yml up -d
 # 启动应用（本地）
 ./mvnw spring-boot:run -pl ap-app -Dspring-boot.run.profiles=local
 ```
+
+> **Important**: `./mvnw test` alone will fail on `ap-app` when shared entities have been moved between modules (e.g. from ap-module-agent → common-mybatis). The `ap-app` integration tests resolve module dependencies from `~/.m2`, not reactor `target/classes`. Always use `./mvnw clean verify` or `./mvnw install -DskipTests && ./mvnw test` after refactoring shared code.
 
 ## API Endpoints
 
@@ -103,6 +111,7 @@ docker compose -f docker/docker-compose.infra.yml up -d
 | Skill | `/api/v1/skills` | Skill CRUD + 导出 |
 | MCP | `/api/v1/mcps` | MCP CRUD + 连接测试 + 工具发现 |
 | Knowledge | `/api/v1/knowledge-bases` | 知识库 CRUD + 文档上传 + 语义检索 |
+| File | `/api/v1/files` | 文件上传下载 + Token 签发 |
 | Health | `/api/v1/health` | Virtual Threads 验证 |
 
 ## API Documentation Access
@@ -155,7 +164,8 @@ springdoc.api-docs.path=/api-docs
 |------|------|
 | 启动基础设施 | `docker compose -f docker/docker-compose.infra.yml up -d` |
 | 编译项目 | `./mvnw clean package -DskipTests` |
-| 运行测试 | `./mvnw test` |
+| 运行全部测试 | `./mvnw clean verify` |
+| 运行单元测试 | `./mvnw test -pl ap-common/...,ap-module-agent,...` |
 | 启动应用 | `./mvnw spring-boot:run -pl ap-app` |
 | 检查健康 | `curl http://localhost:8080/api/v1/health` |
 | 查看 API 文档 | `curl http://localhost:8080/v3/api-docs` |

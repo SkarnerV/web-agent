@@ -11,14 +11,14 @@
 | Task 6 (Skill CRUD) | ✅ Complete | 20 (SkillCrudTest) |
 | Task 7 (MCP CRUD + Client) | ✅ Complete | 18 (McpCrudTest + McpToolCallTest) |
 | Task 8 (Knowledge Base CRUD) | ✅ Complete | 19 (KnowledgeBaseCrudTest) |
-| Task 9 (File) | 📋 Planned | — |
+| Task 9 (File) | ✅ Complete | 17 (FileServiceTest) |
 | Task 10 (Model Config) | ✅ Complete | 14 (ModelRegistryImplTest) |
-| Task 11 (Market) | 📋 Planned | — |
+| Task 11 (Market) | 🚧 Partial (entity/mapper/DTO) | — |
 | Task 12 (OpenAPI, CI) | 📋 Planned | — |
 | Task 13 (E2E) | 📋 Planned | — |
 | Frontend (React + Vite) | 🚧 In Progress | — |
 
-**Total Unit Tests**: 183 ✅ all passing (40 common-core + 31 agent + 36 chat + 69 asset + 43 ap-app)
+**Total Unit Tests**: 236 ✅ all passing (40 common-core + 31 agent + 36 chat + 69 asset + 17 file + 43 ap-app)
 
 ---
 
@@ -28,7 +28,7 @@
 |-----------|--------|------------|
 | **v1.0 MVP Core** (Tasks 1-4) | ✅ Shipped | 100% |
 | **v1.1 Asset Modules** (Tasks 5-10) | ✅ Complete | 100% |
-| **v1.2 Market & File** (Tasks 11, 9) | 📋 Planned | — |
+| **v1.2 Market & File** (Tasks 9, 11) | 🚧 In Progress (File ✅, Market 🚧) | — |
 | **v2.0 Security & Auth** | 📋 Planned | — |
 
 ---
@@ -120,6 +120,26 @@ See previous sessions. Key commits:
 
 ---
 
+### ✅ Task 9: File Module
+
+**Commit**: `46f3838`
+
+| Subtask | Description | Status |
+|---------|-------------|--------|
+| 9.1 | File upload (type/size/Tika MIME validation, MinIO) | ✅ |
+| 9.2 | Download/preview token (64-byte SecureRandom) | ✅ |
+| 9.3 | File download & preview (Content-Disposition) | ✅ |
+| 9.4 | File expired cleanup (@Scheduled hourly) | ✅ |
+
+**Files**:
+- `ap-module-file/controller/FileController.java`
+- `ap-module-file/service/FileService.java`
+- `ap-module-file/cleaner/FileCleaner.java`
+
+**Tests**: FileServiceTest (17) — upload, download, token, cleanup
+
+---
+
 ### ✅ Task 10: Model Configuration
 
 **Subtask of Task 5** — builtin + custom model queries, built-in ModelRegistryImpl.
@@ -131,12 +151,24 @@ See previous sessions. Key commits:
 
 ---
 
+### 🚧 Task 11: Market Module
+
+| Subtask | Description | Status |
+|---------|-------------|--------|
+| 11.1-11.5 | Entity/Mapper/DTO layer | ✅ |
+| — | Controller & Service | 📋 Pending |
+
+**Files**: MarketItemEntity, FavoriteEntity, ReviewEntity, Mappers, DTOs, Converter
+
+---
+
 ## Pending Tasks
 
 | Task | Description | Priority |
 |------|-------------|----------|
-| **Task 9** | File upload/download/token/cleanup (ap-module-file) | Medium |
-| **Task 11** | Market publish/search/favorite/import (ap-module-market) | Medium |
+| **Task 11** | Market controller + service (publish/search/favorite/import) | Medium |
+| **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
+| **Task 13** | End-to-end smoke tests | Low |
 | **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
 | **Task 13** | End-to-end smoke tests | Low |
 
@@ -173,8 +205,9 @@ Design system (17 reusable components): `design/agent-platform-ui.pen`
 | ap-module-agent | 31 | ✅ Pass |
 | ap-module-chat | 36 | ✅ Pass |
 | ap-module-asset | 69 | ✅ Pass |
+| ap-module-file | 17 | ✅ Pass |
 | ap-app (Smoke/Flyway/Index) | 43 | ✅ Pass |
-| **Total** | **183** | **✅ All Pass** |
+| **Total** | **236** | **✅ All Pass** |
 
 ---
 
@@ -211,12 +244,13 @@ Design system (17 reusable components): `design/agent-platform-ui.pen`
 | `902585c` | Fix task numbering in tasks.md | — |
 | `4cd854c` | Chat module (task 4.x) | — |
 | `21a2b14` | Agent CRUD, duplicate, export/import | — |
+| `46f3838` | File module: upload/download/token/cleanup | +652 / — |
 
 ---
 
 **Last Updated**: 2026-05-04  
-**Total Commits**: 25  
-**Unit Tests**: 183 passing  
-**Controllers**: 5 (Agent, Chat, Skill, MCP, Knowledge)  
-**Services**: 6 (Agent, ChatSession, Skill, MCP, KnowledgeBase)  
+**Total Commits**: 26  
+**Unit Tests**: 236 passing  
+**Controllers**: 6 (Agent, Chat, Skill, MCP, Knowledge, File)  
+**Services**: 7 (Agent, ChatSession, Skill, MCP, KnowledgeBase, File, FileCleaner)  
 **Design Components**: 17 reusable (agent-platform-ui.pen)
