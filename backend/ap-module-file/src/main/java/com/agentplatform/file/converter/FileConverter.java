@@ -1,7 +1,7 @@
 package com.agentplatform.file.converter;
 
 import com.agentplatform.file.dto.FileVO;
-import com.agentplatform.file.entity.FileEntity;
+import com.agentplatform.common.mybatis.entity.FileEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.MappingConstants;
 

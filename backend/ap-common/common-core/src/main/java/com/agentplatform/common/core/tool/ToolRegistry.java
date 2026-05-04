@@ -40,4 +40,14 @@ public interface ToolRegistry {
      * Programmatically registers a builtin tool (called at startup).
      */
     void registerBuiltinTool(ToolDefinition def);
+
+    /**
+     * Registers a knowledge base search tool in the registry. Called on KB create/update.
+     */
+    void registerKnowledgeTool(UUID kbId, String kbName);
+
+    /**
+     * Removes all registered tools for the given knowledge base. Called on KB delete.
+     */
+    void removeKnowledgeTools(UUID kbId);
 }

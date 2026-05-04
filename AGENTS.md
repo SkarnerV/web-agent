@@ -69,7 +69,7 @@ backend/
 ├── ap-module-file/          # 文件上传下载
 └── ap-common/               # 公共组件
     ├── common-core/         # ApiResponse/ErrorCode/GlobalExceptionHandler
-    ├── common-mybatis/      # BaseEntity/乐观锁/逻辑删除
+    ├── common-mybatis/      # BaseEntity/乐观锁/逻辑删除/Entity/Mapper
     └── common-redis/        # Redis配置
 ```
 
@@ -100,6 +100,9 @@ docker compose -f docker/docker-compose.infra.yml up -d
 |--------|-----------|-------------|
 | Agent | `/api/v1/agents` | CRUD + 版本管理 + 导入导出 |
 | Chat | `/api/v1/chat` | SSE 流式对话 + 会话管理 |
+| Skill | `/api/v1/skills` | Skill CRUD + 导出 |
+| MCP | `/api/v1/mcps` | MCP CRUD + 连接测试 + 工具发现 |
+| Knowledge | `/api/v1/knowledge-bases` | 知识库 CRUD + 文档上传 + 语义检索 |
 | Health | `/api/v1/health` | Virtual Threads 验证 |
 
 ## API Documentation Access
@@ -163,6 +166,7 @@ springdoc.api-docs.path=/api-docs
 - **设计文档**: `.Ds-Spec/specs/agent-platform/design.md`
 - **任务清单**: `.Ds-Spec/specs/agent-platform/tasks.md`
 - **UI/UX 设计图**: `design/agent-platform-ui.pen`（Pencil 设计文件，含设计系统组件与 Dashboard 等页面布局）
+- **设计/实现差异分析**: `.Ds-Spec/specs/ui-design-implementation-gap-analysis/`
 - **开发进度**: `PROGRESS.md`
 
 ---

@@ -1,6 +1,6 @@
-package com.agentplatform.file.mapper;
+package com.agentplatform.common.mybatis.mapper;
 
-import com.agentplatform.file.entity.FileEntity;
+import com.agentplatform.common.mybatis.entity.FileEntity;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import org.apache.ibatis.annotations.Mapper;
 

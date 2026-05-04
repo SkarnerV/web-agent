@@ -185,6 +185,25 @@ public class ToolRegistryImpl implements ToolRegistry {
         tools.put(def.getToolId(), def);
     }
 
+    @Override
+    public void registerKnowledgeTool(UUID kbId, String kbName) {
+        String toolId = ToolDefinition.knowledgeId(kbId);
+        ToolDefinition def = new ToolDefinition(toolId, "kb_search",
+                SourceType.KNOWLEDGE, kbId,
+                "Search the '" + kbName + "' knowledge base",
+                jsonSchema(kbSearchSchema()));
+        def.setEnabled(true);
+        tools.put(toolId, def);
+        log.info("Registered knowledge tool: {} ({})", toolId, kbName);
+    }
+
+    @Override
+    public void removeKnowledgeTools(UUID kbId) {
+        String toolId = ToolDefinition.knowledgeId(kbId);
+        tools.remove(toolId);
+        log.info("Removed knowledge tool: {}", toolId);
+    }
+
     // ─── JSON helpers ───
 
     private String jsonSchema(Map<String, Object> schema) {
@@ -210,6 +229,14 @@ public class ToolRegistryImpl implements ToolRegistry {
                 "properties", Map.of(
                         "expression", Map.of("type", "string", "description", "Mathematical expression to evaluate")),
                 "required", List.of("expression"));
+    }
+
+    private Map<String, Object> kbSearchSchema() {
+        return Map.of(
+                "type", "object",
+                "properties", Map.of(
+                        "query", Map.of("type", "string", "description", "The search query for semantic retrieval")),
+                "required", List.of("query"));
     }
 
     private Map<String, Object> fileReadSchema() {

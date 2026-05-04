@@ -308,5 +308,19 @@ class ToolRegistryTest {
             def.setEnabled(true);
             tools.put(def.getToolId(), def);
         }
+
+        @Override
+        public void registerKnowledgeTool(UUID kbId, String kbName) {
+            ToolDefinition def = new ToolDefinition(ToolDefinition.knowledgeId(kbId),
+                    "kb_search", SourceType.KNOWLEDGE, kbId,
+                    "Search the knowledge base", "{}");
+            def.setEnabled(true);
+            tools.put(def.getToolId(), def);
+        }
+
+        @Override
+        public void removeKnowledgeTools(UUID kbId) {
+            tools.remove(ToolDefinition.knowledgeId(kbId));
+        }
     }
 }

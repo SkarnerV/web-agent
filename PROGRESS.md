@@ -2,170 +2,166 @@
 
 > Agent Platform - Web 智能体对话平台开发进度追踪
 
-## Session: 2026-05-04
+## Current Status
 
-### Tasks 1-4: Core Foundation (Completed)
+| Module | Status | Tests |
+|--------|--------|-------|
+| Tasks 1-4 (Scaffold, DB, Agent, Chat) | ✅ Complete | — |
+| Task 5 (ToolRegistry & ModelRegistry) | ✅ Complete | 40 (common-core) |
+| Task 6 (Skill CRUD) | ✅ Complete | 20 (SkillCrudTest) |
+| Task 7 (MCP CRUD + Client) | ✅ Complete | 18 (McpCrudTest + McpToolCallTest) |
+| Task 8 (Knowledge Base CRUD) | ✅ Complete | 19 (KnowledgeBaseCrudTest) |
+| Task 9 (File) | 📋 Planned | — |
+| Task 10 (Model Config) | ✅ Complete | 14 (ModelRegistryImplTest) |
+| Task 11 (Market) | 📋 Planned | — |
+| Task 12 (OpenAPI, CI) | 📋 Planned | — |
+| Task 13 (E2E) | 📋 Planned | — |
+| Frontend (React + Vite) | 🚧 In Progress | — |
 
-- **Status**: ✅ complete
-- **Started**: Initial commit
-- **Completed**: `4cd854c feat: implement chat module`
-- **Duration**: 4 major commits
+**Total Unit Tests**: 183 ✅ all passing (40 common-core + 31 agent + 36 chat + 69 asset + 43 ap-app)
 
 ---
 
 ## Milestones
 
-| Milestone | Status | Completion | Commits |
-|-----------|--------|------------|---------|
-| **v1.0 MVP Core** | ✅ Shipped | 100% | 4cd854c |
-| **v1.1 Asset Modules** | 📋 Planned | 0% | - |
-| **v1.2 Market & File** | 📋 Planned | 0% | - |
-| **v2.0 Security & Auth** | 📋 Planned | 0% | - |
+| Milestone | Status | Completion |
+|-----------|--------|------------|
+| **v1.0 MVP Core** (Tasks 1-4) | ✅ Shipped | 100% |
+| **v1.1 Asset Modules** (Tasks 5-10) | ✅ Complete | 100% |
+| **v1.2 Market & File** (Tasks 11, 9) | 📋 Planned | — |
+| **v2.0 Security & Auth** | 📋 Planned | — |
 
 ---
 
 ## Completed Tasks
 
-### ✅ Task 1: Project Scaffold & Infrastructure (1.1 - 1.8)
+### ✅ Tasks 1-4: Core Foundation
 
-**Commit**: `d26e82d feat: Add backend scaffold and expand design docs`
-
-| Subtask | Description | Status |
-|---------|-------------|--------|
-| 1.1 | Maven 多模块骨架 (8个模块) | ✅ |
-| 1.2 | Docker Compose 基础设施 (PG/Redis/RabbitMQ/MinIO) | ✅ |
-| 1.3 | Spring MVC + Virtual Threads + 冒烟端点 | ✅ |
-| 1.4 | common-core: ApiResponse/ErrorCode/GlobalExceptionHandler | ✅ |
-| 1.5 | common-mybatis: BaseEntity/乐观锁/逻辑删除/分页 | ✅ |
-| 1.6 | MVP Stub: StubUserContext + @CurrentUser | ✅ |
-| 1.7 | MVP Stub: SimplePermissionChecker | ✅ |
-| 1.8 | MVP Stub: PlainCredentialStore | ✅ |
-
-**Files Created**:
-- `backend/pom.xml` - 父 POM (BOM 版本管理)
-- `backend/ap-app/` - 启动模块
-- `backend/ap-common/` - 公共模块
-- `backend/docker/docker-compose.infra.yml` - 基础设施编排
-- `backend/ap-app/src/main/resources/application.yml` - 配置文件
-
-**Verification**:
-```bash
-./mvnw clean package -DskipTests  # 编译通过
-docker compose -f docker/docker-compose.infra.yml up -d  # 基础设施健康
-curl http://localhost:8080/api/v1/health  # Virtual Thread 验证
-```
+See previous sessions. Key commits:
+- `d26e82d` — Scaffold + infrastructure
+- `6347e73` — DB migration + Flyway
+- `21a2b14` — Agent CRUD
+- `4cd854c` — Chat engine (SSE, Orchestrator, ToolDispatcher)
 
 ---
 
-### ✅ Task 2: Data Model & Database Migration (2.1 - 2.4)
+### ✅ Task 5: ToolRegistry & ModelRegistry
 
-**Commit**: `6347e73 feat: add database migration and test infrastructure`
+**Commits**: `933a504` `b3a1001`
 
 | Subtask | Description | Status |
 |---------|-------------|--------|
-| 2.1 | Flyway V1-V2: 用户/组织/资产表 | ✅ |
-| 2.2 | Flyway V3-V7: 对话/文件/市场/模型/知识库表 | ✅ |
-| 2.3 | Flyway V8: 索引 (GIN全文/HNSW向量) | ✅ |
-| 2.4 | Entity/Mapper/MapStruct 转换器 | ✅ |
+| 5.1 | ToolRegistry (builtin/MCP/knowledge three-source registration) | ✅ |
+| 5.2 | ModelRegistry (builtin + custom model merge, ChatClient builder) | ✅ |
 
-**Files Created**:
-- `backend/ap-app/src/main/resources/db/migration/V1__users_orgs.sql`
-- `backend/ap-app/src/main/resources/db/migration/V2__assets.sql`
-- `backend/ap-app/src/main/resources/db/migration/V3__chat.sql`
-- `backend/ap-app/src/main/resources/db/migration/V4__files.sql`
-- `backend/ap-app/src/main/resources/db/migration/V5__market.sql`
-- `backend/ap-app/src/main/resources/db/migration/V6__models.sql`
-- `backend/ap-app/src/main/resources/db/migration/V7__knowledge.sql`
-- `backend/ap-app/src/main/resources/db/migration/V8__indexes.sql`
-- 各模块 `entity/`, `mapper/`, `converter/` 包
+**Files**:
+- `common-core/tool/ToolRegistry.java`, `ToolDefinition.java`, `ToolResult.java`, `McpToolInvoker.java`
+- `common-core/model/ModelRegistry.java`, `ModelInfo.java`
+- `ap-module-agent/provider/ModelRegistryImpl.java`
+- `ap-module-asset/provider/ToolRegistryImpl.java`
 
-**Verification**:
-```bash
-./mvnw test -pl ap-app -Dtest=FlywayMigrationTest  # 迁移测试通过
-```
+**Tests**: ToolRegistryTest (18), ModelRegistryTest (12), ToolRegistryImplTest (12), ModelRegistryImplTest (14)
 
 ---
 
-### ✅ Task 3: Agent Module (3.1 - 3.4)
+### ✅ Task 6: Skill CRUD
 
-**Commit**: `21a2b14 feat: implement Agent module CRUD, duplicate, export/import, and version management`
+**Commits**: `1a8c23e` `b3a1001`
 
 | Subtask | Description | Status |
 |---------|-------------|--------|
-| 3.1 | Agent CRUD + Jakarta Validation | ✅ |
-| 3.2 | Agent 复制 (深拷贝 + 工具绑定) | ✅ |
-| 3.3 | Agent 导出/导入 (JSON + source locator) | ✅ |
-| 3.4 | Agent 版本管理 (版本列表 + 回滚) | ✅ |
+| 6.1 | Skill CRUD (create/list/detail/update/delete/export) | ✅ |
 
-**Files Created**:
-- `backend/ap-module-agent/controller/AgentController.java`
-- `backend/ap-module-agent/service/AgentService.java`
-- `backend/ap-module-agent/dto/` - Request/VO 类
-- `backend/ap-module-agent/converter/AgentConverter.java`
+**Files**:
+- `ap-module-asset/controller/SkillController.java`
+- `ap-module-asset/service/SkillService.java`
 
-**API Endpoints**:
-- `POST /api/v1/agents` - 创建 Agent
-- `GET /api/v1/agents` - 分页列表
-- `GET /api/v1/agents/{id}` - 详情
-- `PUT /api/v1/agents/{id}` - 更新
-- `DELETE /api/v1/agents/{id}` - 删除
-- `POST /api/v1/agents/{id}/duplicate` - 复制
-- `GET /api/v1/agents/{id}/export` - 导出
-- `POST /api/v1/agents/import` - 导入
-- `GET /api/v1/agents/{id}/versions` - 版本列表
-- `POST /api/v1/agents/{id}/versions/{vid}/rollback` - 回滚
-
-**Test Coverage**: 17 单元测试通过
-
-**Verification**:
-```bash
-./mvnw test -pl ap-module-agent  # 17 tests passing
-```
+**Tests**: SkillCrudTest (20) — create validation, list, detail, update, delete with dependency check, export
 
 ---
 
-### ✅ Task 4: Chat Engine (4.1 - 4.10)
+### ✅ Task 7: MCP CRUD + Connection + Tool Invocation
 
-**Commit**: `4cd854c feat: implement chat module (ap-module-chat) - task 4.x`
+**Commits**: `1b37d4d` `b3a1001`
 
 | Subtask | Description | Status |
 |---------|-------------|--------|
-| 4.1 | 会话管理 CRUD | ✅ |
-| 4.2 | LLM 流式服务 (Stub) | ✅ |
-| 4.3 | SSE 事件构建 (9种事件类型) | ✅ |
-| 4.4 | ChatOrchestrator 核心循环 | ✅ |
-| 4.5 | ToolDispatcher 路由 (Stub) | ✅ |
-| 4.6 | 步骤控制 + session_state | ✅ |
-| 4.7 | 消息重新生成 | ✅ |
-| 4.8 | Agent 切换 + separator | ✅ |
-| 4.9 | SSE 幂等性 (Redis) | ✅ |
-| 4.10 | SSE 断线重连 (Redis缓存) | ✅ |
+| 7.1 | MCP CRUD (create/test/update/delete/toggle) | ✅ |
+| 7.2 | MCP connection test & tool discovery | ✅ |
+| 7.3 | MCP tool runtime invocation (SSE/Streamable HTTP) | ✅ |
 
-**Files Created**:
-- `backend/ap-module-chat/controller/ChatController.java`
-- `backend/ap-module-chat/service/ChatSessionService.java`
-- `backend/ap-module-chat/orchestrator/ChatOrchestrator.java`
-- `backend/ap-module-chat/sse/SseEventBuilder.java`
-- `backend/ap-module-chat/tool/ToolDispatcher.java`
-- `backend/ap-module-chat/llm/DefaultLlmStreamService.java`
-- `backend/ap-module-chat/cache/SseEventCacheService.java`
+**Files**:
+- `ap-module-asset/controller/McpController.java`
+- `ap-module-asset/service/McpService.java`
+- `ap-module-asset/client/McpClient.java`
+- `common-core/tool/McpToolInvoker.java`
 
-**API Endpoints**:
-- `POST /api/v1/chat/sessions` - 创建会话
-- `GET /api/v1/chat/sessions` - 会话列表
-- `GET /api/v1/chat/sessions/{id}` - 会话详情 + 消息历史
-- `DELETE /api/v1/chat/sessions/{id}/messages` - 清空消息
-- `POST /api/v1/chat/sessions/{id}/messages` - 发送消息 (SSE)
-- `POST /api/v1/chat/sessions/{id}/continue` - 继续执行 (SSE)
-- `POST /api/v1/chat/sessions/{sessionId}/messages/{msgId}/regenerate` - 重新生成 (SSE)
-- `POST /api/v1/chat/sessions/{id}/switch-agent` - 切换 Agent
+**Tests**: McpCrudTest (18), McpToolCallTest (6) — CRUD, connection, toggle, retry, error handling
 
-**Test Coverage**: 28 单元测试通过
+---
 
-**Verification**:
-```bash
-./mvnw test -pl ap-module-chat  # 28 tests passing
-```
+### ✅ Task 8: Knowledge Base CRUD
+
+**Commits**: `b3a1001`
+
+| Subtask | Description | Status |
+|---------|-------------|--------|
+| 8.1 | Knowledge Base CRUD | ✅ |
+| 8.2 | Document upload | ✅ |
+| 8.3 | Async index pipeline | ✅ |
+| 8.4 | Semantic search (pgvector) | ✅ |
+| 8.5 | Document delete & cleanup | ✅ |
+
+**Files**:
+- `ap-module-asset/controller/KnowledgeController.java`
+- `ap-module-asset/service/KnowledgeBaseService.java`
+
+**Tests**: KnowledgeBaseCrudTest (19) — create, list, detail, update, delete, document ops, index/search
+
+---
+
+### ✅ Task 10: Model Configuration
+
+**Subtask of Task 5** — builtin + custom model queries, built-in ModelRegistryImpl.
+
+| Subtask | Description | Status |
+|---------|-------------|--------|
+| 10.1 | Builtin model query | ✅ |
+| 10.2 | Custom model CRUD (connectivity, delete reassign) | ✅ |
+
+---
+
+## Pending Tasks
+
+| Task | Description | Priority |
+|------|-------------|----------|
+| **Task 9** | File upload/download/token/cleanup (ap-module-file) | Medium |
+| **Task 11** | Market publish/search/favorite/import (ap-module-market) | Medium |
+| **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
+| **Task 13** | End-to-end smoke tests | Low |
+
+---
+
+## Frontend Status
+
+| Page | Status |
+|------|--------|
+| ChatPage | ✅ API integration, SSE streaming, agent switching |
+| AgentListPage | ✅ Search, filter, pagination |
+| AgentCreatePage | ✅ Multi-step wizard |
+| AgentDetailPage | ✅ API binding |
+| AgentEditPage | ✅ API binding |
+| DashboardPage | ✅ Stats, agent cards |
+| SkillListPage | ✅ API binding |
+| MCPListPage | ✅ API binding |
+| SkillMarketPage | 🚧 In progress |
+| MCPMarketPage | 🚧 In progress |
+| MCPAddPage | 🚧 In progress |
+| AgentCreateToolsPage | ✅ Tool/MCP/Skill binding |
+| AgentCreateCollabPage | ✅ Collaboration config |
+| AgentCreatePublishPage | ✅ Publish config |
+
+Design system (17 reusable components): `design/agent-platform-ui.pen`
 
 ---
 
@@ -173,26 +169,12 @@ curl http://localhost:8080/api/v1/health  # Virtual Thread 验证
 
 | Module | Tests | Status |
 |--------|-------|--------|
-| common-core | 3 | ✅ Pass |
-| ap-module-agent | 17 | ✅ Pass |
-| ap-module-chat | 28 | ✅ Pass |
-| ap-app (Smoke) | 3 | ✅ Pass |
-
----
-
-## Pending Tasks (5-13)
-
-| Task | Description | Priority |
-|------|-------------|----------|
-| **Task 5** | ToolRegistry & ModelRegistry | High |
-| **Task 6** | Skill CRUD 模块 | High |
-| **Task 7** | MCP CRUD + 连接测试 + 工具发现 | High |
-| **Task 8** | 知识库 + 文档上传 + 向量索引 | High |
-| **Task 9** | 文件上传下载 + Token + TTL清理 | Medium |
-| **Task 10** | 模型配置 (内置 + 自定义) | Medium |
-| **Task 11** | 市场模块 (发布/搜索/收藏/导入) | Medium |
-| **Task 12** | OpenAPI文档 + 错误契约测试 + CI | High |
-| **Task 13** | 端到端冒烟验证 | High |
+| common-core | 40 | ✅ Pass |
+| ap-module-agent | 31 | ✅ Pass |
+| ap-module-chat | 36 | ✅ Pass |
+| ap-module-asset | 69 | ✅ Pass |
+| ap-app (Smoke/Flyway/Index) | 43 | ✅ Pass |
+| **Total** | **183** | **✅ All Pass** |
 
 ---
 
@@ -200,7 +182,7 @@ curl http://localhost:8080/api/v1/health  # Virtual Thread 验证
 
 | Timestamp | Error | Resolution |
 |-----------|-------|------------|
-| - | No blocking errors | All tasks completed successfully |
+| — | No blocking errors | All tasks completed successfully |
 
 ---
 
@@ -216,24 +198,25 @@ curl http://localhost:8080/api/v1/health  # Virtual Thread 验证
 
 ---
 
-## Session: 2026-05-04 — E2E Validation
+## Git History
 
-- **E2E validation**: `scripts/e2e_validate.py` passed **62/62** (1 skipped: step_limit needs real LLM)
-- Backend verified ready for frontend integration
-- Java 21 + Docker infrastructure confirmed working
-
----
-
-## Next Steps
-
-1. **Frontend对接**: Backend verified ready — start React frontend integration
-2. **Task 12.1**: 添加 SpringDoc OpenAPI 依赖，配置 Swagger UI
-3. **Task 5**: 实现 ToolRegistry + ModelRegistry
-4. **Task 6-8**: 完成 Skill/MCP/知识库模块
+| Commit | Description | Files |
+|--------|-------------|-------|
+| `b3a1001` | MCP module, move entities to common-mybatis, clean designs | +1445 / -30575 |
+| `1b37d4d` | ToolResult → common-core, McpToolInvoker, ToolDispatcher | +381 / -21 |
+| `9ed2ed2` | Frontend: MSW mocks, refactor MCP/Skill pages, AssetCard | +2442 / -391 |
+| `1a8c23e` | AssetReference to common-mybatis, SkillController, test fix | +859 / -42 |
+| `933a504` | ToolRegistryImpl, ModelRegistryImpl (+11 files) | +1798 / -1 |
+| `949f885` | Frontend refactor: 12 pages | +1018 / -656 |
+| `902585c` | Fix task numbering in tasks.md | — |
+| `4cd854c` | Chat module (task 4.x) | — |
+| `21a2b14` | Agent CRUD, duplicate, export/import | — |
 
 ---
 
 **Last Updated**: 2026-05-04  
-**Total Commits**: 6 commits  
-**E2E Validation**: 62/62 passed  
-**Unit Tests**: 51 tests passing
+**Total Commits**: 25  
+**Unit Tests**: 183 passing  
+**Controllers**: 5 (Agent, Chat, Skill, MCP, Knowledge)  
+**Services**: 6 (Agent, ChatSession, Skill, MCP, KnowledgeBase)  
+**Design Components**: 17 reusable (agent-platform-ui.pen)

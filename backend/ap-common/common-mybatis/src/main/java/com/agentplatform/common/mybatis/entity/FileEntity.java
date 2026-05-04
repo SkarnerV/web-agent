@@ -1,4 +1,4 @@
-package com.agentplatform.file.entity;
+package com.agentplatform.common.mybatis.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;

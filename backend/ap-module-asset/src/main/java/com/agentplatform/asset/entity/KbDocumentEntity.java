@@ -9,6 +9,11 @@ import lombok.experimental.Accessors;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 
+/**
+ * Document record within a knowledge base. Does NOT extend BaseEntity because the kb_documents
+ * table has no version/soft-delete columns — documents are hard-deleted via ON DELETE CASCADE
+ * when the parent KB is removed, and concurrent edits are not a concern.
+ */
 @Data
 @Accessors(chain = true)
 @TableName("kb_documents")
