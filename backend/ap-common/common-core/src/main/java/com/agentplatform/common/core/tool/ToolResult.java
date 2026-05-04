@@ -1,7 +1,7 @@
-package com.agentplatform.chat.tool;
+package com.agentplatform.common.core.tool;
 
 /**
- * Result of a tool execution.
+ * Result of a tool execution. Used by both builtin and MCP tool dispatch.
  */
 public record ToolResult(
         String toolCallId,

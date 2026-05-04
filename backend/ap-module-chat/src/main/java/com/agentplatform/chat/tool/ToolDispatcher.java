@@ -1,5 +1,7 @@
 package com.agentplatform.chat.tool;
 
+import com.agentplatform.common.core.tool.McpToolInvoker;
+import com.agentplatform.common.core.tool.ToolResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -15,7 +17,12 @@ import java.util.UUID;
 public class ToolDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(ToolDispatcher.class);
-    private static final long TOOL_TIMEOUT_MS = 30_000;
+
+    private final McpToolInvoker mcpToolInvoker;
+
+    public ToolDispatcher(McpToolInvoker mcpToolInvoker) {
+        this.mcpToolInvoker = mcpToolInvoker;
+    }
 
     /**
      * Dispatches a tool call to the appropriate handler.
@@ -64,12 +71,29 @@ public class ToolDispatcher {
 
     private ToolResult executeMcpTool(String toolCallId, String toolName,
                                       String arguments, Map<String, Object> bindings, long startTime) {
-        // TODO: Forward to remote MCP server via SSE/Streamable HTTP (depends on task 7.3)
-        // Resilience4j retry: 2s interval, max 2 retries, 30s timeout
-        Object sourceId = bindings.get("source_id");
-        log.info("Executing MCP tool: {} (source_id={})", toolName, sourceId);
-        long duration = System.currentTimeMillis() - startTime;
-        return ToolResult.success(toolCallId, "MCP tool '" + toolName + "' executed.", duration);
+        Object sourceIdRaw = bindings.get("source_id");
+        if (sourceIdRaw == null) {
+            return ToolResult.error(toolCallId, "MCP tool binding missing source_id",
+                    System.currentTimeMillis() - startTime);
+        }
+
+        UUID mcpId;
+        try {
+            mcpId = sourceIdRaw instanceof UUID uuid ? uuid : UUID.fromString(sourceIdRaw.toString());
+        } catch (IllegalArgumentException e) {
+            return ToolResult.error(toolCallId, "Invalid MCP source_id: " + sourceIdRaw,
+                    System.currentTimeMillis() - startTime);
+        }
+
+        log.info("Dispatching MCP tool: {} (mcp_id={})", toolName, mcpId);
+        ToolResult result = mcpToolInvoker.executeTool(mcpId, toolName, arguments);
+
+        if (!result.isSuccess()) {
+            log.warn("MCP tool call failed: tool={}, mcp={}, error={}",
+                    toolName, mcpId, result.content());
+        }
+
+        return result;
     }
 
     private ToolResult executeKnowledgeTool(String toolCallId, String toolName,

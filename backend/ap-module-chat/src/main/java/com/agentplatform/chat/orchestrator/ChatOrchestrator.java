@@ -15,7 +15,7 @@ import com.agentplatform.chat.sse.SseEventBuilder;
 import com.agentplatform.chat.sse.SseEventBuilder.SseEventWithMeta;
 import com.agentplatform.chat.sse.SseEventCacheService;
 import com.agentplatform.chat.tool.ToolDispatcher;
-import com.agentplatform.chat.tool.ToolResult;
+import com.agentplatform.common.core.tool.ToolResult;
 import com.agentplatform.common.core.agent.AgentConfigProvider;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
