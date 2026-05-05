@@ -9,6 +9,7 @@ import com.agentplatform.file.service.FileService;
 import com.agentplatform.file.service.FileService.FileDownloadResult;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.*;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/files")
+@Tag(name = "Files")
 public class FileController {
 
     private final FileService fileService;

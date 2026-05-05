@@ -11,6 +11,7 @@ import com.agentplatform.common.core.trace.RequestIdContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
@@ -18,6 +19,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/chat")
+@Tag(name = "Chat")
 public class ChatController {
 
     private final ChatSessionService sessionService;

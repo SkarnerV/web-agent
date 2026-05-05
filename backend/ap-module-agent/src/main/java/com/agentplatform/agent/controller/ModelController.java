@@ -12,6 +12,7 @@ import com.agentplatform.common.core.security.UserPrincipal;
 import com.agentplatform.common.core.trace.RequestIdContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/models")
+@Tag(name = "Models")
 public class ModelController {
 
     private final ModelService modelService;

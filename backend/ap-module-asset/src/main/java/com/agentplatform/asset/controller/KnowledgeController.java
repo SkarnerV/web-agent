@@ -10,6 +10,7 @@ import com.agentplatform.common.core.trace.RequestIdContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -19,6 +20,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/knowledge-bases")
+@Tag(name = "Knowledge")
 public class KnowledgeController {
 
     private final KnowledgeBaseService knowledgeBaseService;

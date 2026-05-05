@@ -55,7 +55,18 @@
       "Bash(sed -i '' 's/favoriteMapper\\\\.delete\\(any\\(/favoriteMapper.delete\\(any\\(/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
       "Bash(sed -i '' 's/reviewMapper\\\\.insert\\(any\\(\\)\\)/reviewMapper.insert\\(any\\(ReviewEntity.class\\)\\)/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
       "Bash(sed -i '' 's/marketItemMapper\\\\.updateById\\(any\\(\\)\\)/marketItemMapper.updateById\\(any\\(MarketItemEntity.class\\)\\)/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
-      "Bash(sed -i '' 's/agentMapper\\\\.insert\\(any\\(\\)\\)/agentMapper.insert\\(any\\(AgentEntity.class\\)\\)/g' java/com/agentplatform/market/service/MarketImportTest.java)"
+      "Bash(sed -i '' 's/agentMapper\\\\.insert\\(any\\(\\)\\)/agentMapper.insert\\(any\\(AgentEntity.class\\)\\)/g' java/com/agentplatform/market/service/MarketImportTest.java)",
+      "Bash(sed -i '' 's/import org.springframework.web.bind.annotation.\\\\*;/import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;/' ap-module-agent/src/main/java/com/agentplatform/agent/controller/AgentController.java)",
+      "Bash(sed -i '' 's/public class AgentController {/@Tag\\(name = \"Agents\"\\)\\\\npublic class AgentController {/' ap-module-agent/src/main/java/com/agentplatform/agent/controller/AgentController.java)",
+      "Bash(sed -i '' 's/import org.springframework.web.bind.annotation.\\\\*;/import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;/' ap-module-agent/src/main/java/com/agentplatform/agent/controller/ModelController.java)",
+      "Bash(sed -i '' 's/public class ModelController {/@Tag\\(name = \"Models\"\\)\\\\npublic class ModelController {/' ap-module-agent/src/main/java/com/agentplatform/agent/controller/ModelController.java)",
+      "Bash(sed -i '' 's/import org.springframework.web.bind.annotation.\\\\*;/import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;/' ap-module-chat/src/main/java/com/agentplatform/chat/controller/ChatController.java)",
+      "Bash(sed -i '' 's|import org.springframework.web.bind.annotation.\\\\*;|import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;|' ap-module-chat/src/main/java/com/agentplatform/chat/controller/ChatController.java)",
+      "Bash(sed -i '' 's/public class ChatController {/@Tag\\(name = \"Chat\"\\)\\\\npublic class ChatController {/' ap-module-chat/src/main/java/com/agentplatform/chat/controller/ChatController.java)",
+      "Bash(sed -i '' 's|import org.springframework.web.bind.annotation.\\\\*;|import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;|' ap-module-file/src/main/java/com/agentplatform/file/controller/FileController.java)",
+      "Bash(sed -i '' 's/public class FileController {/@Tag\\(name = \"Files\"\\)\\\\npublic class FileController {/' ap-module-file/src/main/java/com/agentplatform/file/controller/FileController.java)",
+      "Bash(sed -i '' 's|import org.springframework.web.bind.annotation.\\\\*;|import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;|' ap-module-market/src/main/java/com/agentplatform/market/controller/MarketController.java)",
+      "Bash(mvn clean *)"
     ]
   }
 }

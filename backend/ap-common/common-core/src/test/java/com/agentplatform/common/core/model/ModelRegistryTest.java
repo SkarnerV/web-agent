@@ -255,6 +255,42 @@ class ModelRegistryTest {
                     "placeholder", true);
         }
 
+        @Override
+        public List<ModelInfo> getBuiltinModels() {
+            return models.values().stream()
+                    .filter(m -> m.getSource() == ModelInfo.Source.BUILTIN && m.isEnabled())
+                    .toList();
+        }
+
+        @Override
+        public List<ModelInfo> getCustomModels(UUID userId) {
+            return models.values().stream()
+                    .filter(m -> m.getSource() == ModelInfo.Source.CUSTOM
+                            && m.isEnabled()
+                            && userId.equals(modelOwners.get(m.getId())))
+                    .toList();
+        }
+
+        @Override
+        public ModelInfo createCustomModel(String name, String apiUrl, byte[] apiKeyEnc,
+                                           String connectionStatus, UUID userId) {
+            String id = addCustomModel(userId, name, apiUrl);
+            ModelInfo m = models.get(id);
+            m.setConnectionStatus(connectionStatus);
+            return m;
+        }
+
+        @Override
+        public ModelInfo updateCustomModel(UUID modelId, String name, String apiUrl,
+                                           byte[] apiKeyEnc, String connectionStatus, UUID userId) {
+            ModelInfo m = models.get(modelId.toString());
+            if (m == null || m.getSource() != ModelInfo.Source.CUSTOM) return null;
+            if (name != null) m.setName(name);
+            if (apiUrl != null) m.setApiUrl(apiUrl);
+            if (connectionStatus != null) m.setConnectionStatus(connectionStatus);
+            return m;
+        }
+
         String addCustomModel(UUID userId, String name, String apiUrl) {
             String id = UUID.randomUUID().toString();
             ModelInfo info = new ModelInfo();

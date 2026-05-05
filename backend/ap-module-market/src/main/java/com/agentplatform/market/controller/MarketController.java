@@ -9,6 +9,7 @@ import com.agentplatform.market.dto.*;
 import com.agentplatform.market.service.MarketService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/market")
+@Tag(name = "Market")
 public class MarketController {
 
     private final MarketService marketService;

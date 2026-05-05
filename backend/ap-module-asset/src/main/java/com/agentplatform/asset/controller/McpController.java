@@ -10,6 +10,7 @@ import com.agentplatform.common.core.trace.RequestIdContext;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/mcps")
+@Tag(name = "MCP")
 public class McpController {
 
     private final McpService mcpService;

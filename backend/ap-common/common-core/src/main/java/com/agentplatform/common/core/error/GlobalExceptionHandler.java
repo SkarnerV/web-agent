@@ -40,7 +40,7 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.status(code.getHttpStatus())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(ErrorResponse.of(code.name(), ex.getMessage(), ex.getDetails(), RequestIdContext.current()));
+                .body(ErrorResponse.of(code.name(), ex.getMessage(), ex.getDetails(), RequestIdContext.currentOrEmpty()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -89,7 +89,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleMethodNotSupported(HttpRequestMethodNotSupportedException ex) {
         return ResponseEntity.status(ex.getStatusCode())
                 .body(ErrorResponse.of("METHOD_NOT_ALLOWED", ex.getMessage(), Map.of(),
-                        RequestIdContext.current()));
+                        RequestIdContext.currentOrEmpty()));
     }
 
     @ExceptionHandler(NoHandlerFoundException.class)
@@ -97,7 +97,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(404)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of("NOT_FOUND", "资源不存在", Map.of("path", ex.getRequestURL()),
-                        RequestIdContext.current()));
+                        RequestIdContext.currentOrEmpty()));
     }
 
     @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
@@ -105,7 +105,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(406)
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of("NOT_ACCEPTABLE", "不支持请求的 Accept 类型", Map.of(),
-                        RequestIdContext.current()));
+                        RequestIdContext.currentOrEmpty()));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
@@ -126,12 +126,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(ErrorCode.INTERNAL_ERROR.getHttpStatus())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(ErrorResponse.of(ErrorCode.INTERNAL_ERROR.name(), "服务内部错误", Map.of(),
-                        RequestIdContext.current()));
+                        RequestIdContext.currentOrEmpty()));
     }
 
     private ResponseEntity<ErrorResponse> build(ErrorCode code, String message, Map<String, Object> details) {
         return ResponseEntity.status(code.getHttpStatus())
                 .contentType(MediaType.APPLICATION_JSON)
-                .body(ErrorResponse.of(code.name(), message, details, RequestIdContext.current()));
+                .body(ErrorResponse.of(code.name(), message, details, RequestIdContext.currentOrEmpty()));
     }
 }

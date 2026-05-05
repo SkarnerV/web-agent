@@ -14,11 +14,11 @@
 | Task 9 (File) | ✅ Complete | 17 (FileServiceTest) |
 | Task 10 (Model Config) | ✅ Complete | 34 (ModelRegistryImplTest + ModelQueryTest + CustomModelTest) |
 | Task 11 (Market) | ✅ Complete | 31 (PublishTest + UnlistTest + MarketSearchTest + FavoriteReviewTest + MarketImportTest) |
-| Task 12 (OpenAPI, CI) | 📋 Planned | — |
+| Task 12 (OpenAPI, CI) | ✅ Complete | 8 (ErrorFormatContractTest) |
 | Task 13 (E2E) | 📋 Planned | — |
 | Frontend (React + Vite) | 🚧 In Progress | — |
 
-**Total Unit Tests**: 284 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 28 market + 17 file + 43 ap-app)
+**Total Unit Tests**: 295 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 31 market + 8 ap-app + 17 file + 43 ap-app-infra)
 
 ---
 
@@ -174,7 +174,25 @@ See previous sessions. Key commits:
 - `ap-module-market/service/MarketService.java`
 - `ap-module-market/converter/MarketConverter.java` (extended)
 
-**Tests**: PublishTest (5), UnlistTest (4), MarketSearchTest (7), FavoriteReviewTest (7), MarketImportTest (5)
+**Tests**: PublishTest (7), UnlistTest (4), MarketSearchTest (7), FavoriteReviewTest (8), MarketImportTest (5)
+
+---
+
+### ✅ Task 12: Cross-Cutting Concerns
+
+| Subtask | Description | Status |
+|---------|-------------|--------|
+| 12.1 | OpenAPI docs (SpringDoc + @Tag on 9 controllers) | ✅ |
+| 12.2 | Error format contract test (8 error codes tested) | ✅ |
+| 12.3 | CI pipeline (.github/workflows/ci.yml) | ✅ |
+
+**Files**:
+- `backend/pom.xml` (springdoc dependency)
+- `GlobalExceptionHandler.java` (fixed requestId null → currentOrEmpty)
+- `.github/workflows/ci.yml`
+- 9 controllers annotated with `@Tag`
+
+**Tests**: ErrorFormatContractTest (8)
 
 ---
 
@@ -182,10 +200,6 @@ See previous sessions. Key commits:
 
 | Task | Description | Priority |
 |------|-------------|----------|
-| **Task 11** | Market controller + service (publish/search/favorite/import) | ✅ Complete |
-| **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
-| **Task 13** | End-to-end smoke tests | Low |
-| **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
 | **Task 13** | End-to-end smoke tests | Low |
 
 ---
