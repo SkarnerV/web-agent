@@ -15,7 +15,7 @@
 | Task 10 (Model Config) | ✅ Complete | 34 (ModelRegistryImplTest + ModelQueryTest + CustomModelTest) |
 | Task 11 (Market) | ✅ Complete | 31 (PublishTest + UnlistTest + MarketSearchTest + FavoriteReviewTest + MarketImportTest) |
 | Task 12 (OpenAPI, CI) | ✅ Complete | 8 (ErrorFormatContractTest) |
-| Task 13 (E2E) | 📋 Planned | — |
+| Task 13 (E2E) | ✅ Complete | 3 (E2eChatFlowTest + E2eMarketFlowTest + E2eMcpFlowTest) |
 | Frontend (React + Vite) | 🚧 In Progress | — |
 
 **Total Unit Tests**: 295 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 31 market + 8 ap-app + 17 file + 43 ap-app-infra)
@@ -29,7 +29,7 @@
 | **v1.0 MVP Core** (Tasks 1-4) | ✅ Shipped | 100% |
 | **v1.1 Asset Modules** (Tasks 5-10) | ✅ Complete | 100% |
 | **v1.2 Market & File** (Tasks 9, 11) | ✅ Complete | — |
-| **v2.0 Security & Auth** | 📋 Planned | — |
+| **v2.0 Security & Auth** (Tasks 12, 13) | ✅ Complete | — |
 
 ---
 
@@ -196,11 +196,29 @@ See previous sessions. Key commits:
 
 ---
 
+### ✅ Task 13: End-to-End Smoke Tests
+
+| Subtask | Description | Status |
+|---------|-------------|--------|
+| 13.1 | Core chat flow (PostgreSQL Testcontainer + SSE + history) | ✅ |
+| 13.2 | Market publish & import flow (agent → publish → search → import → chat) | ✅ |
+| 13.3 | MCP tool full pipeline (WireMock MCP server + tools + agent binding + disable) | ✅ |
+
+**Files**:
+- `ap-app/src/test/java/com/agentplatform/e2e/E2eChatFlowTest.java`
+- `ap-app/src/test/java/com/agentplatform/e2e/E2eMarketFlowTest.java`
+- `ap-app/src/test/java/com/agentplatform/e2e/E2eMcpFlowTest.java`
+- PostgreSQL via Testcontainers, WireMock for MCP simulation
+
+**Tests**: E2eChatFlowTest (1), E2eMarketFlowTest (1), E2eMcpFlowTest (1)
+
+---
+
 ## Pending Tasks
 
 | Task | Description | Priority |
 |------|-------------|----------|
-| **Task 13** | End-to-end smoke tests | Low |
+| **Task 13** | End-to-end smoke tests | ✅ Complete |
 
 ---
 

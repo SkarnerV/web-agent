@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.agentplatform.common.mybatis.handler.JsonbStringTypeHandler;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -29,7 +29,7 @@ public class KbChunkEntity {
 
     // pgvector embedding field intentionally omitted; handled via custom SQL
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String metadata;
 
     private OffsetDateTime createdAt;

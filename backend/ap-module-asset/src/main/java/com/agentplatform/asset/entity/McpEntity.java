@@ -3,7 +3,7 @@ package com.agentplatform.asset.entity;
 import com.agentplatform.common.mybatis.entity.BaseEntity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.agentplatform.common.mybatis.handler.JsonbStringTypeHandler;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
@@ -36,7 +36,7 @@ public class McpEntity extends BaseEntity {
 
     private String lastError;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String toolsDiscovered;
 
     private String status;

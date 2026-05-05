@@ -4,7 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.agentplatform.common.mybatis.handler.JsonbStringTypeHandler;
 import lombok.Data;
 import lombok.experimental.Accessors;
 
@@ -27,7 +27,7 @@ public class AgentToolBindingEntity {
 
     private String toolName;
 
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonbStringTypeHandler.class)
     private String toolSchemaSnapshot;
 
     private Boolean enabled;

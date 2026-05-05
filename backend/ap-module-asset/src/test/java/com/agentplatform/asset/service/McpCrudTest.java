@@ -328,7 +328,7 @@ class McpCrudTest {
         void toggle_disable() {
             McpEntity entity = buildMcpEntity("Toggle MCP", "sse");
             entity.setEnabled(true);
-            entity.setConnectionStatus(ConnectionStatus.CONNECTED.getValue());
+            entity.setConnectionStatus(ConnectionStatus.ONLINE.getValue());
             when(mcpMapper.selectById(MCP_ID)).thenReturn(entity);
             when(mcpMapper.updateById(any(McpEntity.class))).thenReturn(1);
 
@@ -416,7 +416,7 @@ class McpCrudTest {
             assertThat(result.getName()).isEqualTo("Test MCP");
             ArgumentCaptor<McpEntity> captor = ArgumentCaptor.forClass(McpEntity.class);
             verify(mcpMapper).updateById(captor.capture());
-            assertThat(captor.getValue().getConnectionStatus()).isEqualTo(ConnectionStatus.CONNECTED.getValue());
+            assertThat(captor.getValue().getConnectionStatus()).isEqualTo(ConnectionStatus.ONLINE.getValue());
         }
 
         @Test
@@ -437,7 +437,7 @@ class McpCrudTest {
 
             ArgumentCaptor<McpEntity> captor = ArgumentCaptor.forClass(McpEntity.class);
             verify(mcpMapper).updateById(captor.capture());
-            assertThat(captor.getValue().getConnectionStatus()).isEqualTo(ConnectionStatus.FAILED.getValue());
+            assertThat(captor.getValue().getConnectionStatus()).isEqualTo(ConnectionStatus.ERROR.getValue());
         }
 
         @Test
@@ -464,7 +464,7 @@ class McpCrudTest {
             assertThat(result.getName()).isEqualTo("Discover MCP");
             ArgumentCaptor<McpEntity> captor = ArgumentCaptor.forClass(McpEntity.class);
             verify(mcpMapper).updateById(captor.capture());
-            assertThat(captor.getValue().getConnectionStatus()).isEqualTo(ConnectionStatus.CONNECTED.getValue());
+            assertThat(captor.getValue().getConnectionStatus()).isEqualTo(ConnectionStatus.ONLINE.getValue());
             assertThat(captor.getValue().getToolsDiscovered()).contains("tool1").contains("tool2");
             verify(toolRegistry).refreshMcpTools(MCP_ID);
         }

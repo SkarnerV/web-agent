@@ -491,6 +491,7 @@ public class AgentService {
         int sortIdx = 0;
         for (ToolBindingRequest tb : bindings) {
             AgentToolBindingEntity binding = new AgentToolBindingEntity();
+            binding.setId(UUID.randomUUID());
             binding.setAgentId(agentId);
             binding.setSourceType(tb.getSourceType());
             binding.setSourceId(tb.getSourceId());

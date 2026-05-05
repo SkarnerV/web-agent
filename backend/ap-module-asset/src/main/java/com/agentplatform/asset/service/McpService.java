@@ -216,12 +216,12 @@ public class McpService {
         try {
             Map<String, Object> result = mcpClient.testConnection(
                     entity.getUrl(), entity.getProtocol(), decryptAuth(entity));
-            entity.setConnectionStatus(ConnectionStatus.CONNECTED.getValue());
+            entity.setConnectionStatus(ConnectionStatus.ONLINE.getValue());
             entity.setLastError(null);
             mcpMapper.updateById(entity);
             log.info("MCP {} connection test successful: {}", mcpId, result);
         } catch (Exception e) {
-            entity.setConnectionStatus(ConnectionStatus.FAILED.getValue());
+            entity.setConnectionStatus(ConnectionStatus.ERROR.getValue());
             entity.setLastError(e.getMessage());
             mcpMapper.updateById(entity);
             throw new BizException(ErrorCode.MCP_CONNECTION_FAILED,
@@ -245,14 +245,14 @@ public class McpService {
             List<Map<String, Object>> tools = mcpClient.discoverTools(
                     entity.getUrl(), entity.getProtocol(), decryptAuth(entity));
             entity.setToolsDiscovered(toJson(tools));
-            entity.setConnectionStatus(ConnectionStatus.CONNECTED.getValue());
+            entity.setConnectionStatus(ConnectionStatus.ONLINE.getValue());
             entity.setLastError(null);
             mcpMapper.updateById(entity);
 
             toolRegistry.refreshMcpTools(mcpId);
             log.info("MCP {} tool discovery complete: {} tools found", mcpId, tools.size());
         } catch (Exception e) {
-            entity.setConnectionStatus(ConnectionStatus.FAILED.getValue());
+            entity.setConnectionStatus(ConnectionStatus.ERROR.getValue());
             entity.setLastError(e.getMessage());
             mcpMapper.updateById(entity);
             throw new BizException(ErrorCode.MCP_CONNECTION_FAILED,
