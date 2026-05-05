@@ -15,7 +15,7 @@ public class SkillUpdateRequest {
 
     private String triggerConditions;
 
-    @Pattern(regexp = "yaml|markdown")
+    @Pattern(regexp = "(?i)yaml|markdown")
     private String format;
 
     private String content;

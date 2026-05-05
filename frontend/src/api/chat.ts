@@ -24,6 +24,10 @@ export function createSession(data: CreateSessionRequest) {
   return post<ChatSessionVO>('/chat/sessions', data)
 }
 
+export function deleteSession(id: string) {
+  return del(`/chat/sessions/${id}`)
+}
+
 export function clearMessages(id: string) {
   return del(`/chat/sessions/${id}/messages`)
 }

@@ -16,7 +16,7 @@
 | Task 11 (Market) | ✅ Complete | 31 (PublishTest + UnlistTest + MarketSearchTest + FavoriteReviewTest + MarketImportTest) |
 | Task 12 (OpenAPI, CI) | ✅ Complete | 8 (ErrorFormatContractTest) |
 | Task 13 (E2E) | ✅ Complete | 3 (E2eChatFlowTest + E2eMarketFlowTest + E2eMcpFlowTest) |
-| Frontend (React + Vite) | 🚧 In Progress | — |
+| Frontend (React + Vite) | ✅ Complete | — |
 
 **Total Unit Tests**: 295 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 31 market + 8 ap-app + 17 file + 43 ap-app-infra)
 
@@ -226,20 +226,31 @@ See previous sessions. Key commits:
 
 | Page | Status |
 |------|--------|
-| ChatPage | ✅ API integration, SSE streaming, agent switching |
-| AgentListPage | ✅ Search, filter, pagination |
-| AgentCreatePage | ✅ Multi-step wizard |
+| ChatPage | ✅ API integration, SSE streaming, agent switching, delete session, message actions, tool call cards, context panel |
+| AgentListPage | ✅ Search, filter (functional dropdowns), pagination, Lucide icons |
+| AgentCreatePage | ✅ Multi-step wizard, real model selector, publish dialog |
 | AgentDetailPage | ✅ API binding |
-| AgentEditPage | ✅ API binding |
-| DashboardPage | ✅ Stats, agent cards |
-| SkillListPage | ✅ API binding |
-| MCPListPage | ✅ API binding |
-| SkillMarketPage | 🚧 In progress |
-| MCPMarketPage | 🚧 In progress |
-| MCPAddPage | 🚧 In progress |
-| AgentCreateToolsPage | ✅ Tool/MCP/Skill binding |
+| AgentEditPage | ✅ API binding, real model selector, publish dialog |
+| DashboardPage | ✅ Real stats from API, recent agents, featured market items |
+| SkillListPage | ✅ API integration, search, tabs, pagination, delete, export |
+| SkillCreatePage | ✅ API integration, create + edit modes, format selector |
+| SkillMarketPage | ✅ API integration, search, import |
+| MCPListPage | ✅ API integration, toggle, test connection, delete |
+| MCPAddPage | ✅ API integration, market install + manual config |
+| MCPMarketPage | ✅ API integration, search, import |
+| KnowledgeBasePage | ✅ API integration, create dialog, delete |
+| KBDocumentsPage | ✅ API integration, upload, delete, reindex |
+| AgentCreateToolsPage | ✅ Built-in tools + API-driven Skill/MCP/KB modal |
 | AgentCreateCollabPage | ✅ Collaboration config |
 | AgentCreatePublishPage | ✅ Publish config |
+
+### Frontend Integration Summary
+- **API layer**: 8 service modules (`agent`, `chat`, `skill`, `mcp`, `knowledge`, `file`, `market`, `model`)
+- **Types**: Full TypeScript types for all backend DTOs/VOs
+- **MSW mocks**: Removed (all pages use real API)
+- **Design gaps**: 43 issues from gap analysis addressed (4 P0, 9 P1, 16 P2, 14 P3)
+- **Responsive**: Collapsible sidebar, fluid layouts, no fixed pixel widths
+- **Build**: Zero TypeScript errors, production build passing
 
 Design system (17 reusable components): `design/agent-platform-ui.pen`
 

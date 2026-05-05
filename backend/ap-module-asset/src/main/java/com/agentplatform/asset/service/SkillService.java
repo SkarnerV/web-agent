@@ -48,6 +48,7 @@ public class SkillService {
 
     @Transactional
     public SkillDetailVO create(SkillCreateRequest request, UUID currentUserId) {
+        request.setFormat(request.getFormat().toLowerCase());
         if ("yaml".equals(request.getFormat())) {
             validateYaml(request.getContent());
         }
@@ -105,7 +106,7 @@ public class SkillService {
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
         if (request.getTriggerConditions() != null) entity.setTriggerConditions(request.getTriggerConditions());
-        if (request.getFormat() != null) entity.setFormat(request.getFormat());
+        if (request.getFormat() != null) entity.setFormat(request.getFormat().toLowerCase());
         if (request.getContent() != null) entity.setContent(request.getContent());
         if ("yaml".equals(entity.getFormat()) && request.getContent() != null) {
             validateYaml(entity.getContent());

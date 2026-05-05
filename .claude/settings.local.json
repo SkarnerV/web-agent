@@ -66,7 +66,21 @@
       "Bash(sed -i '' 's|import org.springframework.web.bind.annotation.\\\\*;|import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;|' ap-module-file/src/main/java/com/agentplatform/file/controller/FileController.java)",
       "Bash(sed -i '' 's/public class FileController {/@Tag\\(name = \"Files\"\\)\\\\npublic class FileController {/' ap-module-file/src/main/java/com/agentplatform/file/controller/FileController.java)",
       "Bash(sed -i '' 's|import org.springframework.web.bind.annotation.\\\\*;|import io.swagger.v3.oas.annotations.tags.Tag;\\\\nimport org.springframework.web.bind.annotation.*;|' ap-module-market/src/main/java/com/agentplatform/market/controller/MarketController.java)",
-      "Bash(mvn clean *)"
+      "Bash(mvn clean *)",
+      "Bash(curl -s http://localhost:3000)",
+      "Bash(npx playwright *)",
+      "Bash(curl -s http://localhost:3000/dashboard)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(npx --version)",
+      "Bash(npx @playwright/mcp@latest --help)",
+      "mcp__playwright",
+      "Bash(mvn package *)",
+      "Bash(./node_modules/.bin/playwright test *)",
+      "Bash(npx @playwright/test --version)",
+      "Bash(node *)",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST http://localhost:8080/api/v1/skills -H 'Content-Type: application/json' -d '{\"name\":\"Test Skill\",\"format\":\"YAML\",\"content\":\"name: test\"}')",
+      "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST http://localhost:8080/api/v1/skills -H 'Content-Type: application/json' -d '{\"name\":\"Test Skill\",\"format\":\"yaml\",\"content\":\"name: test\"}')",
+      "Bash(lsof -ti:8080)"
     ]
   }
 }

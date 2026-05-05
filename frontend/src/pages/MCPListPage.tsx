@@ -1,26 +1,12 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Plus, Plug, Trash2, Zap } from 'lucide-react'
+import { Plus, Plug, Trash2, Zap, Loader2, AlertCircle } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
+import { listMcps, toggleMcp, testMcpConnection, deleteMcp } from '../api/mcp'
+import type { McpSummaryVO } from '../api/types'
 
-interface McpServer {
-  id: string
-  name: string
-  address: string
-  protocol: 'SSE' | 'Streamable HTTP' | 'stdio'
-  status: 'online' | 'offline' | 'error'
-  toolCount: number
-  enabled: boolean
-}
-
-const mcpData: McpServer[] = [
-  { id: '1', name: 'Playwright MCP', address: 'playwright-mcp.internal:8080', protocol: 'SSE', status: 'online', toolCount: 12, enabled: true },
-  { id: '2', name: 'GitHub MCP', address: 'github-mcp.internal:8080', protocol: 'Streamable HTTP', status: 'online', toolCount: 8, enabled: true },
-  { id: '3', name: 'Puppeteer MCP', address: 'puppeteer-mcp.internal:8080', protocol: 'SSE', status: 'offline', toolCount: 6, enabled: false },
-  { id: '4', name: 'Slack MCP', address: 'slack-mcp.internal:8080', protocol: 'Streamable HTTP', status: 'error', toolCount: 5, enabled: true },
-  { id: '5', name: 'Filesystem MCP', address: 'fs-mcp.internal:8080', protocol: 'stdio', status: 'online', toolCount: 4, enabled: true },
-]
+type DisplayStatus = 'online' | 'offline' | 'error'
 
 const statusConfig = {
   online: { dot: 'bg-success-500', label: '在线' },
@@ -28,33 +14,110 @@ const statusConfig = {
   error: { dot: 'bg-error-500', label: '错误' },
 }
 
+function mapConnectionStatus(connectionStatus?: string): DisplayStatus {
+  switch (connectionStatus) {
+    case 'CONNECTED':
+      return 'online'
+    case 'ERROR':
+      return 'error'
+    default:
+      return 'offline'
+  }
+}
+
 const MCPListPage: React.FC = () => {
   const navigate = useNavigate()
-  const [servers, setServers] = useState(mcpData)
+  const [servers, setServers] = useState<McpSummaryVO[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [testingId, setTestingId] = useState<string | null>(null)
 
-  const handleToggle = (id: string) => {
-    setServers((prev) =>
-      prev.map((s) => (s.id === id ? { ...s, enabled: !s.enabled } : s)),
-    )
+  const fetchServers = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const result = await listMcps()
+      setServers(result.data)
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : '加载失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchServers()
+  }, [])
+
+  const handleToggle = async (id: string, currentEnabled: boolean) => {
+    try {
+      const updated = await toggleMcp(id, !currentEnabled)
+      setServers((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, enabled: updated.enabled } : s)),
+      )
+    } catch {
+      // revert is not needed since we only update on success
+    }
   }
 
   const handleTestConnection = async (id: string) => {
     setTestingId(id)
-    setTimeout(() => {
+    try {
+      const result = await testMcpConnection(id)
       setServers((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, status: 'online' as const } : s)),
+        prev.map((s) =>
+          s.id === id
+            ? { ...s, connectionStatus: result.connectionStatus }
+            : s,
+        ),
       )
+    } catch {
+      setServers((prev) =>
+        prev.map((s) =>
+          s.id === id ? { ...s, connectionStatus: 'ERROR' } : s,
+        ),
+      )
+    } finally {
       setTestingId(null)
-    }, 1500)
+    }
   }
 
-  const handleDelete = (id: string) => {
-    setServers((prev) => prev.filter((s) => s.id !== id))
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('确认删除此 MCP Server？此操作不可撤销。')) return
+    try {
+      await deleteMcp(id)
+      setServers((prev) => prev.filter((s) => s.id !== id))
+    } catch {
+      // deletion failed silently
+    }
   }
 
-  const onlineCount = servers.filter((s) => s.status === 'online').length
-  const totalTools = servers.reduce((sum, s) => sum + s.toolCount, 0)
+  const onlineCount = servers.filter((s) => mapConnectionStatus(s.connectionStatus) === 'online').length
+  const totalTools = servers.reduce((sum, s) => sum + (s.toolsDiscoveredCount ?? 0), 0)
+
+  if (loading) {
+    return (
+      <Layout breadcrumb={[{ label: '我的资产' }, { label: 'MCP' }]}>
+        <div className="p-8 flex items-center justify-center min-h-[400px]">
+          <Loader2 className="w-8 h-8 animate-spin text-text-tertiary" />
+        </div>
+      </Layout>
+    )
+  }
+
+  if (error) {
+    return (
+      <Layout breadcrumb={[{ label: '我的资产' }, { label: 'MCP' }]}>
+        <div className="p-8 flex flex-col items-center justify-center min-h-[400px] gap-4">
+          <AlertCircle className="w-10 h-10 text-error-500" />
+          <p className="text-text-secondary">{error}</p>
+          <Button variant="primary" onClick={fetchServers}>
+            重试
+          </Button>
+        </div>
+      </Layout>
+    )
+  }
 
   return (
     <Layout breadcrumb={[{ label: '我的资产' }, { label: 'MCP' }]}>
@@ -85,16 +148,17 @@ const MCPListPage: React.FC = () => {
 
           {/* Table Body */}
           {servers.map((server) => {
-            const st = statusConfig[server.status]
+            const displayStatus = mapConnectionStatus(server.connectionStatus)
+            const st = statusConfig[displayStatus]
             return (
               <div
                 key={server.id}
                 className="grid grid-cols-6 gap-4 px-6 py-3.5 border-b border-border-subtle text-sm hover:bg-bg-hover transition-colors items-center"
               >
-                {/* Server Name + Address */}
+                {/* Server Name + URL */}
                 <div className="flex flex-col gap-0.5 min-w-0">
                   <span className="font-medium text-text-primary truncate">{server.name}</span>
-                  <span className="text-[11px] text-text-tertiary truncate">{server.address}</span>
+                  <span className="text-[11px] text-text-tertiary truncate">{server.url}</span>
                 </div>
 
                 {/* Status: dot + text */}
@@ -106,17 +170,17 @@ const MCPListPage: React.FC = () => {
                 {/* Protocol */}
                 <div>
                   <span className="px-2 py-0.5 bg-gray-100 rounded text-xs text-text-secondary">
-                    {server.protocol}
+                    {server.protocol ?? '-'}
                   </span>
                 </div>
 
                 {/* Tool Count */}
-                <div className="text-text-secondary">{server.toolCount} 个工具</div>
+                <div className="text-text-secondary">{server.toolsDiscoveredCount ?? 0} 个工具</div>
 
                 {/* Toggle Switch */}
                 <div>
                   <button
-                    onClick={() => handleToggle(server.id)}
+                    onClick={() => handleToggle(server.id, server.enabled)}
                     className={`w-11 h-6 rounded-full transition-colors ${
                       server.enabled ? 'bg-brand-500' : 'bg-gray-200'
                     }`}

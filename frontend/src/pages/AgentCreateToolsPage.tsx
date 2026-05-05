@@ -1,11 +1,15 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Check, Search, Wand, Plug, BookOpen, Plus, X,
-  Globe, FileText, Code, Database, Mail, Calendar, Wrench, Trash2,
+  Globe, FileText, Code, Database, Mail, Calendar, Wrench, Trash2, Loader2,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
+import { listSkills } from '../api/skill'
+import { listMcps } from '../api/mcp'
+import { listKnowledgeBases } from '../api/knowledge'
+import type { SkillSummaryVO, McpSummaryVO, KnowledgeBaseSummaryVO } from '../api/types'
 
 type StepType = 1 | 2 | 3 | 4
 
@@ -22,26 +26,13 @@ const builtinTools = [
   { id: 'calendar', name: 'calendar', description: '管理日程和提醒', icon: Calendar },
 ]
 
-// Available skills (configurable)
-const availableSkills = [
-  { id: 'sk-code-review', name: '代码审查专家', description: '深度代码分析，输出JSON检视报告', icon: Wand },
-  { id: 'sk-doc-gen', name: '文档生成', description: '自动生成技术文档和API说明', icon: FileText },
-  { id: 'sk-data-analyze', name: '数据分析', description: '多维度数据分析和可视化', icon: Database },
-]
-
-// Available MCP servers
-const availableMcps = [
-  { id: 'mcp-github', name: 'GitHub MCP', tools: ['repo_info', 'list_prs', 'search_code', 'create_issue'], icon: Plug },
-  { id: 'mcp-postgres', name: 'PostgreSQL MCP', tools: ['query_sales_data', 'list_tables', 'describe_table'], icon: Database },
-  { id: 'mcp-puppeteer', name: 'Puppeteer MCP', tools: ['screenshot', 'click', 'fill_form'], icon: Globe },
-]
-
-// Available KBs
-const availableKbs = [
-  { id: 'kb-product', name: '产品手册', docs: 412, size: '18.2MB', indexedAt: '2026-04-19', icon: BookOpen },
-  { id: 'kb-tech', name: '技术规范', docs: 156, size: '8.7MB', indexedAt: '2026-05-01', icon: BookOpen },
-  { id: 'kb-api', name: 'API文档', docs: 89, size: '3.2MB', indexedAt: '2026-04-25', icon: BookOpen },
-]
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+}
 
 // ── Types ──
 
@@ -110,6 +101,55 @@ const AddModal: React.FC<{
 }> = ({ open, onClose, onAdd, existingIds }) => {
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState<'builtin' | 'skill' | 'mcp' | 'kb'>('builtin')
+  const [skillItems, setSkillItems] = useState<ToolItem[]>([])
+  const [mcpItems, setMcpItems] = useState<ToolItem[]>([])
+  const [kbItems, setKbItems] = useState<ToolItem[]>([])
+  const [loading, setLoading] = useState<Record<string, boolean>>({})
+
+  const fetchTab = useCallback(async (key: 'skill' | 'mcp' | 'kb') => {
+    setLoading((prev) => ({ ...prev, [key]: true }))
+    try {
+      if (key === 'skill') {
+        const res = await listSkills({ page: 1, page_size: 100 })
+        setSkillItems(res.data.map((s: SkillSummaryVO) => ({
+          id: s.id,
+          name: s.name,
+          description: s.description,
+          type: 'skill' as const,
+          icon: Wand,
+        })))
+      } else if (key === 'mcp') {
+        const res = await listMcps({ page: 1, page_size: 100 })
+        setMcpItems(res.data.map((m: McpSummaryVO) => ({
+          id: m.id,
+          name: m.name,
+          description: m.toolsDiscoveredCount != null ? `${m.toolsDiscoveredCount} 个工具` : undefined,
+          type: 'mcp' as const,
+          icon: Plug,
+        })))
+      } else {
+        const res = await listKnowledgeBases({ page: 1, page_size: 100 })
+        setKbItems(res.data.map((k: KnowledgeBaseSummaryVO) => ({
+          id: k.id,
+          name: k.name,
+          description: `${k.docCount} 文档 · ${formatBytes(k.totalSizeBytes)}`,
+          type: 'kb' as const,
+          icon: BookOpen,
+          docs: k.docCount,
+          size: formatBytes(k.totalSizeBytes),
+        })))
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setLoading((prev) => ({ ...prev, [key]: false }))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!open) return
+    if (tab !== 'builtin') fetchTab(tab)
+  }, [open, tab, fetchTab])
 
   const tabs = [
     { key: 'builtin' as const, label: '内置工具', icon: Wrench },
@@ -118,20 +158,27 @@ const AddModal: React.FC<{
     { key: 'kb' as const, label: '知识库', icon: BookOpen },
   ]
 
+  const lc = search.toLowerCase()
   const builtinFiltered = builtinTools.filter(
-    (t) => t.name.toLowerCase().includes(search.toLowerCase()) && !existingIds.includes(t.id),
+    (t) => t.name.toLowerCase().includes(lc) && !existingIds.includes(t.id),
   )
-  const skillsFiltered = availableSkills.filter(
-    (s) => s.name.toLowerCase().includes(search.toLowerCase()) && !existingIds.includes(s.id),
+  const skillsFiltered = skillItems.filter(
+    (s) => s.name.toLowerCase().includes(lc) && !existingIds.includes(s.id),
   )
-  const mcpsFiltered = availableMcps.filter(
-    (m) => m.name.toLowerCase().includes(search.toLowerCase()) && !existingIds.includes(m.id),
+  const mcpsFiltered = mcpItems.filter(
+    (m) => m.name.toLowerCase().includes(lc) && !existingIds.includes(m.id),
   )
-  const kbsFiltered = availableKbs.filter(
-    (k) => k.name.toLowerCase().includes(search.toLowerCase()) && !existingIds.includes(k.id),
+  const kbsFiltered = kbItems.filter(
+    (k) => k.name.toLowerCase().includes(lc) && !existingIds.includes(k.id),
   )
 
   if (!open) return null
+
+  const renderLoading = () => (
+    <div className="flex items-center justify-center py-8">
+      <Loader2 className="w-5 h-5 text-text-tertiary animate-spin" />
+    </div>
+  )
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -190,17 +237,17 @@ const AddModal: React.FC<{
               <Plus className="w-4 h-4 text-brand-500" />
             </button>
           ))}
-          {tab === 'skill' && (skillsFiltered.length === 0 ? (
+          {tab === 'skill' && (loading.skill ? renderLoading() : skillsFiltered.length === 0 ? (
             <p className="text-center text-[13px] text-text-tertiary py-8">所有 Skill 已添加</p>
           ) : (
             skillsFiltered.map((item) => (
               <button
                 key={item.id}
-                onClick={() => onAdd({ ...item, type: 'skill' })}
+                onClick={() => onAdd(item)}
                 className="flex items-center gap-3 p-3 rounded-lg border border-border-subtle hover:border-brand-500 text-left transition-colors"
               >
                 <div className="w-9 h-9 rounded-lg bg-purple-50 flex items-center justify-center flex-shrink-0">
-                  <item.icon className="w-4.5 h-4.5 text-purple-500" />
+                  <Wand className="w-4.5 h-4.5 text-purple-500" />
                 </div>
                 <div className="flex-1 flex flex-col gap-0.5">
                   <span className="text-[13px] font-semibold text-text-primary">{item.name}</span>
@@ -210,45 +257,41 @@ const AddModal: React.FC<{
               </button>
             ))
           ))}
-          {tab === 'mcp' && (mcpsFiltered.length === 0 ? (
+          {tab === 'mcp' && (loading.mcp ? renderLoading() : mcpsFiltered.length === 0 ? (
             <p className="text-center text-[13px] text-text-tertiary py-8">所有 MCP 已添加</p>
           ) : (
             mcpsFiltered.map((item) => (
               <button
                 key={item.id}
-                onClick={() => onAdd({ ...item, type: 'mcp', tools: item.tools })}
+                onClick={() => onAdd(item)}
                 className="flex items-center gap-3 p-3 rounded-lg border border-border-subtle hover:border-brand-500 text-left transition-colors"
               >
                 <div className="w-9 h-9 rounded-lg bg-success-50 flex items-center justify-center flex-shrink-0">
-                  <item.icon className="w-4.5 h-4.5 text-success-500" />
+                  <Plug className="w-4.5 h-4.5 text-success-500" />
                 </div>
                 <div className="flex-1 flex flex-col gap-0.5">
                   <span className="text-[13px] font-semibold text-text-primary">{item.name}</span>
-                  <span className="text-[11px] text-text-tertiary">
-                    添加了 {item.tools.length} 个工具：{item.tools.slice(0, 3).join(' · ')}{item.tools.length > 3 ? ' ...' : ''}
-                  </span>
+                  <span className="text-[11px] text-text-tertiary">{item.description}</span>
                 </div>
                 <Plus className="w-4 h-4 text-brand-500" />
               </button>
             ))
           ))}
-          {tab === 'kb' && (kbsFiltered.length === 0 ? (
+          {tab === 'kb' && (loading.kb ? renderLoading() : kbsFiltered.length === 0 ? (
             <p className="text-center text-[13px] text-text-tertiary py-8">所有知识库已引用</p>
           ) : (
             kbsFiltered.map((item) => (
               <button
                 key={item.id}
-                onClick={() => onAdd({ ...item, type: 'kb', docs: item.docs, size: item.size, indexedAt: item.indexedAt })}
+                onClick={() => onAdd(item)}
                 className="flex items-center gap-3 p-3 rounded-lg border border-border-subtle hover:border-brand-500 text-left transition-colors"
               >
                 <div className="w-9 h-9 rounded-lg bg-warning-50 flex items-center justify-center flex-shrink-0">
-                  <item.icon className="w-4.5 h-4.5 text-warning-500" />
+                  <BookOpen className="w-4.5 h-4.5 text-warning-500" />
                 </div>
                 <div className="flex-1 flex flex-col gap-0.5">
                   <span className="text-[13px] font-semibold text-text-primary">{item.name}</span>
-                  <span className="text-[11px] text-text-tertiary">
-                    {item.docs} 文档 · {item.size} · 上次索引 {item.indexedAt}
-                  </span>
+                  <span className="text-[11px] text-text-tertiary">{item.description}</span>
                 </div>
                 <Plus className="w-4 h-4 text-brand-500" />
               </button>

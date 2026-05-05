@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Check, Bot, Sparkles, Zap, MessageSquare } from 'lucide-react'
+import { ChevronLeft, Check, Bot, Sparkles, Zap, MessageSquare, X } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { getAgent, updateAgent } from '../api/agent'
+import { publishAsset } from '../api/market'
+import { listAllModels } from '../api/model'
 import { ApiError } from '../api/client'
+import type { ModelInfo } from '../api/types'
 
 type StepType = 1 | 2 | 3 | 4
 
@@ -14,12 +17,6 @@ const iconOptions = [
   { id: 'sparkles', icon: Sparkles, bg: 'bg-warning-50', color: 'text-warning-500' },
   { id: 'zap', icon: Zap, bg: 'bg-success-50', color: 'text-success-500' },
   { id: 'message', icon: MessageSquare, bg: 'bg-error-50', color: 'text-error-500' },
-]
-
-const modelOptions = [
-  { id: 'claude-opus', label: 'Claude Opus 4.7' },
-  { id: 'claude-sonnet', label: 'Claude Sonnet 4.6' },
-  { id: 'gpt-4o', label: 'GPT-4o' },
 ]
 
 const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
@@ -72,14 +69,94 @@ const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
   )
 }
 
+const PublishDialog: React.FC<{
+  open: boolean
+  publishing: boolean
+  onClose: () => void
+  onConfirm: (data: { visibility: string; version: string; releaseNotes: string }) => void
+}> = ({ open, publishing, onClose, onConfirm }) => {
+  const [visibility, setVisibility] = useState('PUBLIC')
+  const [version, setVersion] = useState('v1.0.0')
+  const [releaseNotes, setReleaseNotes] = useState('')
+
+  if (!open) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="w-[460px] bg-white rounded-xl shadow-xl p-6 flex flex-col gap-5">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-text-primary">发布智能体</h3>
+          <button onClick={onClose} className="text-text-tertiary hover:text-text-primary">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px] font-medium text-text-primary">可见性</label>
+          <div className="flex flex-col gap-1.5">
+            {([
+              { value: 'PUBLIC', label: '公开' },
+              { value: 'WORKSPACE_EDIT', label: '同组可编辑' },
+              { value: 'WORKSPACE_READ', label: '同组只读' },
+              { value: 'PRIVATE', label: '私有' },
+            ] as const).map((opt) => (
+              <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="visibility"
+                  value={opt.value}
+                  checked={visibility === opt.value}
+                  onChange={() => setVisibility(opt.value)}
+                  className="accent-brand-500"
+                />
+                <span className="text-sm text-text-primary">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px] font-medium text-text-primary">版本号</label>
+          <input
+            type="text"
+            value={version}
+            onChange={(e) => setVersion(e.target.value)}
+            className="w-full px-3 py-2 bg-white border border-border-strong rounded-md text-sm text-text-primary outline-none focus:border-brand-500"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-[13px] font-medium text-text-primary">发布说明</label>
+          <textarea
+            value={releaseNotes}
+            onChange={(e) => setReleaseNotes(e.target.value)}
+            placeholder="描述本次发布的变更..."
+            className="w-full px-3 py-2 bg-white border border-border-strong rounded-md text-sm text-text-primary placeholder:text-text-tertiary outline-none resize-none h-[80px] focus:border-brand-500"
+          />
+        </div>
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button variant="secondary" onClick={onClose} disabled={publishing}>
+            取消
+          </Button>
+          <Button variant="primary" onClick={() => onConfirm({ visibility, version, releaseNotes })} disabled={publishing}>
+            {publishing ? '发布中...' : '确认发布'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const AgentEditPage: React.FC = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [models, setModels] = useState<ModelInfo[]>([])
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     icon: 'bot',
-    model: 'claude-sonnet',
+    model: '',
     maxSteps: 10,
     prompt: '',
     version: 0,
@@ -87,17 +164,22 @@ const AgentEditPage: React.FC = () => {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showPublishDialog, setShowPublishDialog] = useState(false)
+  const [publishing, setPublishing] = useState(false)
 
   useEffect(() => {
     if (!id) return
     ;(async () => {
       try {
-        const agent = await getAgent(id)
+        const [agent, allModels] = await Promise.all([getAgent(id), listAllModels()])
+        const enabled = allModels.filter((m) => m.enabled)
+        setModels(enabled)
+        const defaultModel = enabled.find((m) => m.isDefault) ?? enabled[0]
         setFormData({
           name: agent.name,
           description: agent.description ?? '',
           icon: agent.avatar ?? 'bot',
-          model: agent.modelId ?? 'claude-sonnet',
+          model: agent.modelId ?? defaultModel?.id ?? '',
           maxSteps: agent.maxSteps || 10,
           prompt: agent.systemPrompt ?? '',
           version: agent.version,
@@ -119,6 +201,9 @@ const AgentEditPage: React.FC = () => {
         name: formData.name.trim(),
         description: formData.description.trim() || undefined,
         avatar: formData.icon,
+        modelId: formData.model || undefined,
+        systemPrompt: formData.prompt.trim() || undefined,
+        maxSteps: formData.maxSteps,
         version: formData.version,
       })
       navigate('/agents')
@@ -126,6 +211,36 @@ const AgentEditPage: React.FC = () => {
       setError(e instanceof ApiError ? e.message : '保存失败，请重试')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handlePublish = async (data: { visibility: string; version: string; releaseNotes: string }) => {
+    if (!id || !formData.name.trim()) return
+    setPublishing(true)
+    setError(null)
+    try {
+      await updateAgent(id, {
+        name: formData.name.trim(),
+        description: formData.description.trim() || undefined,
+        avatar: formData.icon,
+        modelId: formData.model || undefined,
+        systemPrompt: formData.prompt.trim() || undefined,
+        maxSteps: formData.maxSteps,
+        version: formData.version,
+      })
+      await publishAsset({
+        assetType: 'AGENT',
+        assetId: id,
+        visibility: data.visibility,
+        version: data.version,
+        releaseNotes: data.releaseNotes || undefined,
+      })
+      navigate('/agents', { state: { published: true } })
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : '发布失败，请重试')
+    } finally {
+      setPublishing(false)
+      setShowPublishDialog(false)
     }
   }
 
@@ -157,7 +272,7 @@ const AgentEditPage: React.FC = () => {
           <Button variant="secondary" onClick={handleSave} disabled={saving}>
             {saving ? '保存中...' : '保存草稿'}
           </Button>
-          <Button variant="primary" onClick={() => id && navigate(`/agents/publish`)} disabled={saving}>
+          <Button variant="primary" onClick={() => setShowPublishDialog(true)} disabled={saving}>
             发布
           </Button>
         </div>
@@ -239,8 +354,8 @@ const AgentEditPage: React.FC = () => {
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
                   className="w-full px-3 py-2.5 bg-white border border-border-strong rounded-md text-sm text-text-primary outline-none focus:border-brand-500"
                 >
-                  {modelOptions.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
+                  {models.map((m) => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </div>
@@ -283,6 +398,12 @@ const AgentEditPage: React.FC = () => {
           </div>
         </div>
       </div>
+      <PublishDialog
+        open={showPublishDialog}
+        publishing={publishing}
+        onClose={() => setShowPublishDialog(false)}
+        onConfirm={handlePublish}
+      />
     </Layout>
   )
 }

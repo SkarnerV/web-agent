@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
       {/* Right Section */}
       <div className="flex items-center gap-3">
         {/* Search */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md w-[240px]">
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md w-48 lg:w-60">
           <Search className="w-3.5 h-3.5 text-text-tertiary" />
           <input
             type="text"

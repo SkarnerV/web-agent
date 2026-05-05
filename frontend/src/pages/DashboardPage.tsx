@@ -1,20 +1,65 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { 
   MessageSquare, 
   Bot, 
   Wand, 
-  Plug
+  Plug,
+  Loader2
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { AssetCard } from '../components/ui/AssetCard'
+import { listAgents } from '../api/agent'
+import { listSkills } from '../api/skill'
+import { listMcps } from '../api/mcp'
+import { listKnowledgeBases } from '../api/knowledge'
+import { getFeatured } from '../api/market'
+import type { AgentSummaryVO, MarketItemVO } from '../api/types'
 
-// DashboardPage - Home page with Layout wrapper
-// Design spec from opus4.7.pen node 0HieJ
 const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
 
-  // Get greeting based on current hour
+  const [recentAgents, setRecentAgents] = useState<AgentSummaryVO[]>([])
+  const [stats, setStats] = useState<{ label: string; value: string }[]>([
+    { label: '智能体', value: '-' },
+    { label: 'Skill', value: '-' },
+    { label: 'MCP', value: '-' },
+    { label: '知识库', value: '-' },
+  ])
+  const [featuredItems, setFeaturedItems] = useState<MarketItemVO[]>([])
+  const [loadingAgents, setLoadingAgents] = useState(true)
+  const [loadingStats, setLoadingStats] = useState(true)
+  const [loadingFeatured, setLoadingFeatured] = useState(true)
+
+  useEffect(() => {
+    listAgents({ sort_by: 'updated_at', sort_order: 'desc', page_size: 4 })
+      .then(res => setRecentAgents(res.data))
+      .catch(() => {})
+      .finally(() => setLoadingAgents(false))
+
+    Promise.all([
+      listAgents({ page_size: 1 }),
+      listSkills({ page_size: 1 }),
+      listMcps({ page_size: 1 }),
+      listKnowledgeBases({ page_size: 1 }),
+    ])
+      .then(([agents, skills, mcps, kbs]) => {
+        setStats([
+          { label: '智能体', value: String(agents.total) },
+          { label: 'Skill', value: String(skills.total) },
+          { label: 'MCP', value: String(mcps.total) },
+          { label: '知识库', value: String(kbs.total) },
+        ])
+      })
+      .catch(() => {})
+      .finally(() => setLoadingStats(false))
+
+    getFeatured()
+      .then(res => setFeaturedItems(res.data))
+      .catch(() => {})
+      .finally(() => setLoadingFeatured(false))
+  }, [])
+
   const getGreeting = () => {
     const hour = new Date().getHours()
     if (hour < 12) return '早上好'
@@ -22,14 +67,12 @@ const DashboardPage: React.FC = () => {
     return '晚上好'
   }
 
-  // Get current date formatted
   const getCurrentDate = () => {
     const now = new Date()
     const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
     return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 ${weekdays[now.getDay()]}`
   }
 
-  // Quick action cards data
   const quickActions = [
     {
       icon: <MessageSquare className="w-5 h-5 text-brand-500" />,
@@ -61,80 +104,27 @@ const DashboardPage: React.FC = () => {
     }
   ]
 
-  // Recent agents data
-  const recentAgents = [
-    {
-      id: '1',
-      name: '需求文档助手',
-      description: '帮助产品经理快速撰写和整理需求文档，支持多种模板格式',
-      status: 'published' as const,
-      toolCount: 5,
-      collabCount: 2,
-      updatedAt: '2d 前'
-    },
-    {
-      id: '2',
-      name: '代码审查专家',
-      description: '专业的代码审查智能体，提供代码质量分析和改进建议',
-      status: 'published' as const,
-      toolCount: 3,
-      collabCount: 1,
-      updatedAt: '3d 前'
-    },
-    {
-      id: '3',
-      name: '数据分析助手',
-      description: '支持多种数据源的分析和可视化，自动生成分析报告',
-      status: 'published' as const,
-      toolCount: 8,
-      collabCount: 4,
-      updatedAt: '5d 前'
-    },
-    {
-      id: '4',
-      name: '翻译专家',
-      description: '高质量的中英互译智能体，支持专业术语和行业术语',
-      status: 'published' as const,
-      toolCount: 2,
-      collabCount: 1,
-      updatedAt: '1w 前'
+  const getFeaturedIcon = (item: MarketItemVO) => {
+    switch (item.assetType) {
+      case 'AGENT': return <Bot className="w-4 h-4 text-brand-500" />
+      case 'SKILL': return <Wand className="w-4 h-4 text-purple-500" />
+      case 'MCP': return <Plug className="w-4 h-4 text-success-500" />
+      default: return <Bot className="w-4 h-4 text-brand-500" />
     }
-  ]
+  }
 
-  // Stats data
-  const stats = [
-    { label: '智能体', value: '12' },
-    { label: 'Skill', value: '5' },
-    { label: 'MCP', value: '3' },
-    { label: '知识库', value: '4' }
-  ]
-
-  // Featured marketplace items
-  const featuredItems = [
-    {
-      icon: <Bot className="w-4 h-4 text-brand-500" />,
-      iconBg: 'bg-brand-100',
-      name: '会议纪要官',
-      description: '自动整理会议内容'
-    },
-    {
-      icon: <Wand className="w-4 h-4 text-purple-500" />,
-      iconBg: 'bg-purple-50',
-      name: '英文翻译 Skill',
-      description: '高质量中英互译'
-    },
-    {
-      icon: <Plug className="w-4 h-4 text-success-500" />,
-      iconBg: 'bg-success-50',
-      name: 'GitHub MCP',
-      description: '代码仓库操作工具'
+  const getFeaturedIconBg = (item: MarketItemVO) => {
+    switch (item.assetType) {
+      case 'AGENT': return 'bg-brand-100'
+      case 'SKILL': return 'bg-purple-50'
+      case 'MCP': return 'bg-success-50'
+      default: return 'bg-brand-100'
     }
-  ]
+  }
 
   return (
     <Layout breadcrumb={[{ label: '首页' }]}>
       <div className="flex flex-col gap-6 p-8">
-        {/* Greeting Section */}
         <div className="flex flex-col gap-1.5">
           <h1 className="text-[26px] font-bold text-text-primary">
             {getGreeting()}, 张三 👋
@@ -144,7 +134,6 @@ const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick Actions Row - 4 cards */}
         <div className="flex gap-4">
           {quickActions.map((action, index) => (
             <button
@@ -152,15 +141,12 @@ const DashboardPage: React.FC = () => {
               onClick={action.onClick}
               className="flex-1 bg-white rounded-xl border border-border-subtle flex flex-col gap-2 p-5 hover:shadow-md hover:border-border-strong transition-all"
             >
-              {/* Icon */}
               <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${action.iconBg}`}>
                 {action.icon}
               </div>
-              {/* Title */}
               <span className="text-[15px] font-semibold text-text-primary">
                 {action.title}
               </span>
-              {/* Description */}
               <span className="text-xs text-text-tertiary">
                 {action.description}
               </span>
@@ -168,9 +154,7 @@ const DashboardPage: React.FC = () => {
           ))}
         </div>
 
-        {/* Recent Agents Section */}
         <div className="flex flex-col gap-3">
-          {/* Header */}
           <div className="flex items-center">
             <span className="flex-1 text-lg font-semibold text-text-primary">
               最近使用的智能体
@@ -183,54 +167,63 @@ const DashboardPage: React.FC = () => {
             </button>
           </div>
 
-          {/* Agents Row */}
-          <div className="flex gap-4">
-            {recentAgents.map((agent) => (
-              <div key={agent.id} className="flex-1">
-                <AssetCard
-                  id={agent.id}
-                  name={agent.name}
-                  description={agent.description}
-                  iconBg="bg-brand-50"
-                  iconText={agent.name[0]}
-                  status={agent.status}
-                  toolCount={agent.toolCount}
-                  collabCount={agent.collabCount}
-                  updatedAt={agent.updatedAt}
-                  onUse={() => navigate('/chat')}
-                  onEdit={() => navigate(`/agents/edit/${agent.id}`)}
-                />
-              </div>
-            ))}
-          </div>
+          {loadingAgents ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="w-6 h-6 text-brand-500 animate-spin" />
+            </div>
+          ) : recentAgents.length === 0 ? (
+            <div className="flex items-center justify-center py-8 text-sm text-text-tertiary">
+              暂无智能体
+            </div>
+          ) : (
+            <div className="flex gap-4">
+              {recentAgents.map((agent) => (
+                <div key={agent.id} className="flex-1">
+                  <AssetCard
+                    id={agent.id}
+                    name={agent.name}
+                    description={agent.description || ''}
+                    iconType="agent"
+                    status={agent.status === 'PUBLISHED' ? 'published' : agent.status === 'DRAFT' ? 'draft' : undefined}
+                    toolCount={0}
+                    collabCount={0}
+                    updatedAt={agent.updatedAt ? new Date(agent.updatedAt).toLocaleDateString() : ''}
+                    onUse={() => navigate('/chat')}
+                    onEdit={() => navigate(`/agents/edit/${agent.id}`)}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Bottom Section - Stats + Featured */}
         <div className="flex gap-4">
-          {/* Stats Card */}
           <div className="flex-1 bg-white rounded-xl border border-border-subtle flex flex-col gap-4 p-6">
             <span className="text-[15px] font-semibold text-text-primary">
               我的资产统计
             </span>
             
-            {/* Stats Grid */}
-            <div className="flex gap-6">
-              {stats.map((stat) => (
-                <div key={stat.label} className="flex-1 flex flex-col gap-1">
-                  <span className="text-xs text-text-tertiary">
-                    {stat.label}
-                  </span>
-                  <span className="text-[28px] font-bold text-text-primary">
-                    {stat.value}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {loadingStats ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-brand-500 animate-spin" />
+              </div>
+            ) : (
+              <div className="flex gap-6">
+                {stats.map((stat) => (
+                  <div key={stat.label} className="flex-1 flex flex-col gap-1">
+                    <span className="text-xs text-text-tertiary">
+                      {stat.label}
+                    </span>
+                    <span className="text-[28px] font-bold text-text-primary">
+                      {stat.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Featured Card */}
           <div className="flex-1 bg-white rounded-xl border border-border-subtle flex flex-col gap-3 p-6">
-            {/* Header */}
             <div className="flex items-center">
               <span className="flex-1 text-[15px] font-semibold text-text-primary">
                 市场精选
@@ -243,29 +236,36 @@ const DashboardPage: React.FC = () => {
               </button>
             </div>
 
-            {/* Featured Items List */}
-            <div className="flex flex-col gap-2.5">
-              {featuredItems.map((item) => (
-                <div 
-                  key={item.name}
-                  className="bg-gray-50 rounded-lg flex items-center gap-2.5 p-2.5 hover:bg-gray-100 transition-colors cursor-pointer"
-                >
-                  {/* Icon */}
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${item.iconBg}`}>
-                    {item.icon}
+            {loadingFeatured ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="w-5 h-5 text-brand-500 animate-spin" />
+              </div>
+            ) : featuredItems.length === 0 ? (
+              <div className="flex items-center justify-center py-4 text-sm text-text-tertiary">
+                暂无精选
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {featuredItems.slice(0, 3).map((item) => (
+                  <div 
+                    key={item.id}
+                    className="bg-gray-50 rounded-lg flex items-center gap-2.5 p-2.5 hover:bg-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${getFeaturedIconBg(item)}`}>
+                      {getFeaturedIcon(item)}
+                    </div>
+                    <div className="flex-1 flex flex-col gap-0.5">
+                      <span className="text-[13px] font-semibold text-text-primary">
+                        {item.assetType === 'AGENT' ? '智能体' : item.assetType === 'SKILL' ? 'Skill' : 'MCP'}
+                      </span>
+                      <span className="text-[11px] text-text-tertiary">
+                        {item.category || `${item.useCount} 次使用`}
+                      </span>
+                    </div>
                   </div>
-                  {/* Text */}
-                  <div className="flex-1 flex flex-col gap-0.5">
-                    <span className="text-[13px] font-semibold text-text-primary">
-                      {item.name}
-                    </span>
-                    <span className="text-[11px] text-text-tertiary">
-                      {item.description}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

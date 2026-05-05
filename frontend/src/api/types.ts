@@ -153,6 +153,333 @@ export interface ContinueRequest {
   sessionStateId: string
 }
 
+// ── Skill types ──
+
+export interface SkillCreateRequest {
+  name: string
+  description?: string
+  triggerConditions?: string
+  format?: string
+  content?: string
+}
+
+export interface SkillUpdateRequest extends SkillCreateRequest {
+  version?: number
+}
+
+export interface SkillDetailVO {
+  id: string
+  ownerId: string
+  name: string
+  description?: string
+  triggerConditions?: string
+  format?: string
+  content?: string
+  status: string
+  visibility: string
+  currentVersion?: string
+  hasUnpublishedChanges: boolean
+  createdAt: string
+  updatedAt: string
+  version: number
+}
+
+export interface SkillSummaryVO {
+  id: string
+  name: string
+  description?: string
+  status: string
+  visibility: string
+  ownerId: string
+  createdAt: string
+}
+
+export interface SkillListParams {
+  status?: string
+  search?: string
+  page?: number
+  page_size?: number
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+// ── MCP types ──
+
+export interface McpCreateRequest {
+  name: string
+  description?: string
+  url?: string
+  protocol?: string
+  authHeaders?: string
+  jsonConfig?: string
+}
+
+export interface McpUpdateRequest {
+  name?: string
+  url?: string
+  protocol?: string
+  authHeaders?: string
+  jsonConfig?: string
+  version?: number
+}
+
+export interface McpDetailVO {
+  id: string
+  ownerId: string
+  name: string
+  description?: string
+  url?: string
+  protocol?: string
+  authHeadersMasked?: string
+  jsonConfig?: string
+  enabled: boolean
+  connectionStatus?: string
+  lastError?: string
+  toolsDiscovered?: string
+  status: string
+  visibility: string
+  currentVersion?: string
+  hasUnpublishedChanges: boolean
+  createdAt: string
+  updatedAt: string
+  version: number
+}
+
+export interface McpSummaryVO {
+  id: string
+  name: string
+  url?: string
+  protocol?: string
+  enabled: boolean
+  connectionStatus?: string
+  toolsDiscoveredCount?: number
+  status: string
+  visibility: string
+  ownerId: string
+  createdAt: string
+}
+
+export interface McpListParams {
+  search?: string
+  page?: number
+  page_size?: number
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+// ── Knowledge Base types ──
+
+export interface KnowledgeBaseCreateRequest {
+  name: string
+  description?: string
+  indexConfig?: string
+}
+
+export interface KnowledgeBaseUpdateRequest {
+  name?: string
+  description?: string
+  indexConfig?: string
+  version?: number
+}
+
+export interface KnowledgeBaseDetailVO {
+  id: string
+  ownerId: string
+  name: string
+  description?: string
+  indexConfig?: string
+  visibility: string
+  docCount: number
+  totalSizeBytes: number
+  createdAt: string
+  updatedAt: string
+  version: number
+}
+
+export interface KnowledgeBaseSummaryVO {
+  id: string
+  name: string
+  description?: string
+  visibility: string
+  docCount: number
+  totalSizeBytes: number
+  ownerId: string
+  createdAt: string
+}
+
+export interface KnowledgeBaseListParams {
+  search?: string
+  page?: number
+  page_size?: number
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+export interface KbDocumentVO {
+  id: string
+  knowledgeBaseId: string
+  fileId: string
+  filename: string
+  fileSize: number
+  mimeType?: string
+  scanStatus?: string
+  indexStatus?: string
+  indexError?: string
+  chunkCount?: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface KbSearchRequest {
+  query: string
+  topK?: number
+}
+
+export interface KbSearchResult {
+  content: string
+  score: number
+  documentName: string
+  chunkIndex: number
+}
+
+// ── File types ──
+
+export interface FileVO {
+  id: string
+  filename: string
+  fileSize: number
+  mimeType?: string
+  scanStatus?: string
+  status?: string
+  expiresAt?: string
+  createdAt: string
+}
+
+export interface FileDownloadTokenVO {
+  downloadUrl: string
+  expiresAt: string
+}
+
+// ── Market types ──
+
+export type MarketAssetType = 'AGENT' | 'SKILL' | 'MCP'
+
+export interface PublishRequest {
+  assetType: MarketAssetType
+  assetId: string
+  visibility?: string
+  version?: string
+  releaseNotes?: string
+}
+
+export interface VisibilityUpdateRequest {
+  visibility: string
+}
+
+export interface ReviewCreateRequest {
+  rating: number
+  comment?: string
+}
+
+export interface MarketItemVO {
+  id: string
+  assetType: MarketAssetType
+  assetId: string
+  currentVersionId?: string
+  authorId: string
+  authorName?: string
+  status: string
+  visibility: string
+  category?: string
+  tags?: string
+  useCount: number
+  favoriteCount: number
+  avgRating?: string
+  reviewCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface MarketItemDetailVO extends MarketItemVO {
+  configSnapshot?: string
+}
+
+export interface ReviewVO {
+  id: string
+  marketItemId: string
+  userId: string
+  userName?: string
+  rating: number
+  comment?: string
+  createdAt: string
+}
+
+export interface MarketListParams {
+  type?: string
+  category?: string
+  search?: string
+  tags?: string
+  page?: number
+  page_size?: number
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
+// ── Model types ──
+
+export interface BuiltinModelVO {
+  id: string
+  name: string
+  provider?: string
+  description?: string
+  isDefault: boolean
+  enabled: boolean
+  sortOrder?: number
+}
+
+export interface CustomModelCreateRequest {
+  name: string
+  apiUrl: string
+  apiKey: string
+}
+
+export interface CustomModelUpdateRequest {
+  name?: string
+  apiUrl?: string
+  apiKey?: string
+}
+
+export interface CustomModelVO {
+  id: string
+  name: string
+  apiUrl?: string
+  apiKeyMasked?: string
+  connectionStatus?: string
+  lastError?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type ModelSource = 'BUILTIN' | 'CUSTOM'
+
+export interface ModelInfo {
+  id: string
+  name: string
+  provider?: string
+  source: ModelSource
+  description?: string
+  isDefault: boolean
+  enabled: boolean
+  sortOrder?: number
+  apiUrl?: string
+  apiKeyMasked?: string
+  connectionStatus?: string
+  lastError?: string
+  createdAt?: string
+  updatedAt?: string
+  config?: Record<string, unknown>
+}
+
 // ── SSE event types ──
 
 export interface SseEventBase {

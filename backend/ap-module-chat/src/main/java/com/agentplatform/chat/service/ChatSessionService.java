@@ -87,6 +87,15 @@ public class ChatSessionService {
     }
 
     @Transactional
+    public void deleteSession(UUID sessionId, UUID userId) {
+        getSessionOrThrow(sessionId, userId);
+        messageMapper.delete(
+                new LambdaQueryWrapper<ChatMessageEntity>()
+                        .eq(ChatMessageEntity::getSessionId, sessionId));
+        sessionMapper.deleteById(sessionId);
+    }
+
+    @Transactional
     public void switchAgent(UUID sessionId, UUID newAgentId, UUID userId) {
         ChatSessionEntity session = getSessionOrThrow(sessionId, userId);
         session.setCurrentAgentId(newAgentId);

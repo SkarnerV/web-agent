@@ -56,6 +56,7 @@ function App() {
         <Route path="/agents/:id" element={<AgentDetailPage />} />
         
         <Route path="/skills/create" element={<SkillCreatePage />} />
+        <Route path="/skills/edit/:id" element={<SkillCreatePage />} />
         <Route path="/mcp/add" element={<MCPAddPage />} />
         <Route path="/knowledge/:id" element={<KBDocumentsPage />} />
         

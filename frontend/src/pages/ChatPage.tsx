@@ -11,18 +11,25 @@ import {
   Wrench,
   Search,
   ChevronDown,
+  ChevronRight,
   Paperclip,
-  X,
   PanelRight,
   MoreHorizontal,
+  Copy,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  FileText,
 } from 'lucide-react'
 import { Sidebar } from '../components/layout/Sidebar'
 import {
   listSessions,
   getSession,
   createSession,
+  deleteSession,
   sendMessage,
   switchAgent,
+  regenerateMessage,
 } from '../api/chat'
 import { listAgents } from '../api/agent'
 import type {
@@ -34,6 +41,7 @@ import type {
   SseToolCallEnd,
   SseStepLimit,
   SseError,
+  SseCitation,
 } from '../api/types'
 
 // ── Helpers ──
@@ -70,10 +78,11 @@ const SessionItem: React.FC<{
   title: string
   agent: string
   time: string
+  lastMessage?: string
   active?: boolean
   onClick: () => void
   onDelete: () => void
-}> = ({ title, agent, time, active, onClick, onDelete }) => (
+}> = ({ title, agent, time, lastMessage, active, onClick, onDelete }) => (
   <button
     onClick={onClick}
     className={`w-full p-2.5 rounded-lg text-left transition-colors group relative ${
@@ -82,6 +91,9 @@ const SessionItem: React.FC<{
   >
     <div className="flex flex-col gap-1">
       <span className="text-sm font-medium text-text-primary truncate pr-5">{title || '新对话'}</span>
+      {lastMessage && (
+        <span className="text-xs text-text-tertiary truncate block">{lastMessage}</span>
+      )}
       <div className="flex items-center gap-2">
         <span className="text-xs text-text-tertiary">{agent}</span>
         <span className="text-xs text-text-tertiary">{formatTime(time)}</span>
@@ -91,10 +103,55 @@ const SessionItem: React.FC<{
       onClick={(e) => { e.stopPropagation(); onDelete() }}
       className="absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-error-500 hover:bg-error-50 opacity-0 group-hover:opacity-100 transition-all"
     >
-      <X className="w-3 h-3" />
+      <span className="text-[10px]">✕</span>
     </button>
   </button>
 )
+
+const ToolCallCard: React.FC<{ tc: ToolCallDetail }> = ({ tc }) => {
+  const [expanded, setExpanded] = React.useState(false)
+  const StatusIcon = tc.status === 'running'
+    ? Loader2
+    : tc.status === 'success'
+    ? CheckCircle
+    : XCircle
+  const statusColor = tc.status === 'running'
+    ? 'text-brand-500'
+    : tc.status === 'success'
+    ? 'text-green-500'
+    : 'text-red-500'
+
+  return (
+    <div className="border border-border-subtle rounded-lg bg-white w-full">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full flex items-center gap-2 px-3 py-2 text-left"
+      >
+        {expanded ? <ChevronDown className="w-3.5 h-3.5 text-text-tertiary shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-text-tertiary shrink-0" />}
+        <StatusIcon className={`w-3.5 h-3.5 shrink-0 ${statusColor} ${tc.status === 'running' ? 'animate-spin' : ''}`} />
+        <span className="text-xs font-medium text-text-primary truncate">{tc.name}</span>
+      </button>
+      {expanded && (
+        <div className="px-3 pb-3 flex flex-col gap-2 border-t border-border-subtle pt-2">
+          {tc.args && (
+            <div>
+              <span className="text-[10px] font-semibold text-text-tertiary uppercase">Arguments</span>
+              <pre className="mt-1 text-[11px] text-text-secondary bg-gray-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">{(() => {
+                try { return JSON.stringify(JSON.parse(tc.args), null, 2) } catch { return tc.args }
+              })()}</pre>
+            </div>
+          )}
+          {tc.result && (
+            <div>
+              <span className="text-[10px] font-semibold text-text-tertiary uppercase">Result</span>
+              <pre className="mt-1 text-[11px] text-text-secondary bg-gray-50 rounded p-2 overflow-x-auto max-h-40 whitespace-pre-wrap break-all">{tc.result}</pre>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 const MessageBubble: React.FC<{
   role: 'user' | 'assistant' | 'system' | 'tool'
@@ -102,18 +159,18 @@ const MessageBubble: React.FC<{
   time: string
   avatar: string
   agentName?: string
-  toolCalls?: string
-  toolResults?: string
+  toolCallDetails?: ToolCallDetail[]
   status?: string
+  isLastAssistant?: boolean
   onRegenerate?: () => void
-}> = ({ role, content, time, avatar, agentName, toolCalls, toolResults, status, onRegenerate }) => {
+}> = ({ role, content, time, avatar, agentName, toolCallDetails, status, isLastAssistant, onRegenerate }) => {
   const [copied, setCopied] = React.useState(false)
 
   const handleCopy = () => {
     if (content) {
       navigator.clipboard.writeText(content)
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      setTimeout(() => setCopied(false), 1500)
     }
   }
   if (role === 'tool') {
@@ -130,8 +187,10 @@ const MessageBubble: React.FC<{
     )
   }
 
+  const showActions = role === 'assistant' && (status === 'COMPLETED' || status === 'FAILED') && content
+
   return (
-    <div className={`flex gap-3 ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
+    <div className={`group/msg flex gap-3 ${role === 'user' ? 'justify-end' : 'justify-start'}`}>
       {role === 'assistant' && (
         <div className="w-8 h-8 rounded-full bg-brand-500 flex items-center justify-center shrink-0">
           <span className="text-sm font-semibold text-white">{avatar}</span>
@@ -140,6 +199,13 @@ const MessageBubble: React.FC<{
       <div className={`max-w-[70%] flex flex-col gap-1.5 ${role === 'user' ? 'items-end' : 'items-start'}`}>
         {role === 'assistant' && agentName && (
           <span className="text-xs font-medium text-text-secondary">{agentName}</span>
+        )}
+        {toolCallDetails && toolCallDetails.length > 0 && (
+          <div className="flex flex-col gap-2 w-full">
+            {toolCallDetails.map((tc) => (
+              <ToolCallCard key={tc.id} tc={tc} />
+            ))}
+          </div>
         )}
         {content && (
           <div
@@ -155,29 +221,23 @@ const MessageBubble: React.FC<{
             )}
           </div>
         )}
-        {role === 'assistant' && status === 'COMPLETED' && content && (
-          <div className="flex items-center gap-3 text-xs text-text-tertiary">
-            <button onClick={handleCopy} className="hover:text-brand-500 transition-colors">
+        {showActions && (
+          <div className={`flex items-center gap-1 ${isLastAssistant ? '' : 'opacity-0 group-hover/msg:opacity-100'} transition-opacity`}>
+            <button
+              onClick={handleCopy}
+              className="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-tertiary hover:text-brand-500 hover:bg-brand-50 transition-colors"
+            >
+              <Copy className="w-3 h-3" />
               {copied ? '已复制' : '复制'}
             </button>
-            <span>·</span>
-            <button className="hover:text-brand-500 transition-colors">分享</button>
             {onRegenerate && (
-              <>
-                <span>·</span>
-                <button onClick={onRegenerate} className="hover:text-brand-500 transition-colors">重新生成</button>
-              </>
-            )}
-          </div>
-        )}
-        {toolCalls && (
-          <div className="p-3 bg-gray-50 border border-border-subtle rounded-lg flex flex-col gap-1.5 w-full">
-            <div className="flex items-center gap-2">
-              <Wrench className="w-3.5 h-3.5 text-text-tertiary" />
-              <span className="text-xs font-medium text-text-secondary">调用 {toolCalls}</span>
-            </div>
-            {toolResults && (
-              <span className="text-xs text-text-tertiary">{toolResults}</span>
+              <button
+                onClick={onRegenerate}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-text-tertiary hover:text-brand-500 hover:bg-brand-50 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                重新生成
+              </button>
             )}
           </div>
         )}
@@ -194,6 +254,20 @@ const MessageBubble: React.FC<{
 
 // ── Main Page ──
 
+interface ToolCallDetail {
+  id: string
+  name: string
+  status: 'running' | 'success' | 'failed'
+  args?: string
+  result?: string
+}
+
+interface CitationSource {
+  title?: string
+  url?: string
+  [key: string]: unknown
+}
+
 interface LocalMessage {
   id: string
   role: 'user' | 'assistant' | 'system' | 'tool'
@@ -201,25 +275,36 @@ interface LocalMessage {
   time: string
   avatar: string
   agentName?: string
-  toolCalls?: string
-  toolResults?: string
+  toolCallDetails?: ToolCallDetail[]
+  citations?: CitationSource[]
   status?: string
 }
 
-const toLocal = (m: ChatMessageVO): LocalMessage => ({
-  id: m.id,
-  role: m.role,
-  content: m.content ?? '',
-  time: m.createdAt,
-  avatar: m.role === 'user' ? '我' : (m.agentId ?? 'A').substring(0, 1).toUpperCase(),
-  agentName: m.agentId ? undefined : undefined,
-  toolCalls: m.toolCalls ? (() => {
-    try { return JSON.parse(m.toolCalls).map((t: { tool_name: string }) => t.tool_name).join(', ') }
-    catch { return undefined }
-  })() : undefined,
-  toolResults: m.toolResults ?? undefined,
-  status: m.status,
-})
+const toLocal = (m: ChatMessageVO): LocalMessage => {
+  let toolCallDetails: ToolCallDetail[] | undefined
+  if (m.toolCalls) {
+    try {
+      const parsed = JSON.parse(m.toolCalls)
+      toolCallDetails = (Array.isArray(parsed) ? parsed : [parsed]).map((t: { tool_call_id?: string; tool_name?: string; arguments?: string }, i: number) => ({
+        id: t.tool_call_id ?? `tc_${i}`,
+        name: t.tool_name ?? 'unknown',
+        status: 'success' as const,
+        args: t.arguments,
+        result: undefined,
+      }))
+    } catch { /* ignore */ }
+  }
+  return {
+    id: m.id,
+    role: m.role,
+    content: m.content ?? '',
+    time: m.createdAt,
+    avatar: m.role === 'user' ? '我' : (m.agentId ?? 'A').substring(0, 1).toUpperCase(),
+    agentName: m.agentId ? undefined : undefined,
+    toolCallDetails,
+    status: m.status,
+  }
+}
 
 const ChatPage: React.FC = () => {
   const navigate = useNavigate()
@@ -252,6 +337,9 @@ const ChatPage: React.FC = () => {
 
   // Context panel
   const [showContextPanel, setShowContextPanel] = useState(true)
+
+  // Last message previews per session
+  const [lastMessageMap, setLastMessageMap] = useState<Record<string, string>>({})
 
   // ── Fetch sessions ──
 
@@ -299,7 +387,12 @@ const ChatPage: React.FC = () => {
     setMessagesLoading(true)
     try {
       const detail = await getSession(sessionId)
-      setMessages(detail.messages.map(toLocal))
+      const localMsgs = detail.messages.map(toLocal)
+      setMessages(localMsgs)
+      const last = [...localMsgs].reverse().find((m) => m.role !== 'system' && m.content)
+      if (last) {
+        setLastMessageMap((prev) => ({ ...prev, [sessionId]: last.content }))
+      }
     } catch {
       // ignore
     } finally {
@@ -314,11 +407,22 @@ const ChatPage: React.FC = () => {
     setMessages([])
   }
 
-  const handleDeleteSession = (sessionId: string) => {
+  const handleDeleteSession = async (sessionId: string) => {
+    if (!window.confirm('确认删除此对话？')) return
+    try {
+      await deleteSession(sessionId)
+    } catch {
+      // proceed with local removal even if API fails
+    }
     setSessions((prev) => prev.filter((s) => s.id !== sessionId))
     if (activeSessionId === sessionId) {
-      setActiveSessionId('')
-      setMessages([])
+      const remaining = sessions.filter((s) => s.id !== sessionId)
+      if (remaining.length > 0) {
+        loadSession(remaining[0].id)
+      } else {
+        setActiveSessionId('')
+        setMessages([])
+      }
     }
   }
 
@@ -395,12 +499,27 @@ const ChatPage: React.FC = () => {
               }
               case 'tool_call_start': {
                 const tc = event.data as SseToolCallStart
-                updated.toolCalls = tc.tool_name
+                const detail: ToolCallDetail = {
+                  id: tc.tool_call_id,
+                  name: tc.tool_name,
+                  status: 'running',
+                  args: tc.arguments,
+                }
+                updated.toolCallDetails = [...(updated.toolCallDetails ?? []), detail]
                 break
               }
               case 'tool_call_end': {
                 const tc = event.data as SseToolCallEnd
-                updated.toolResults = tc.result_summary
+                updated.toolCallDetails = (updated.toolCallDetails ?? []).map((d) =>
+                  d.id === tc.tool_call_id
+                    ? { ...d, status: tc.status === 'SUCCESS' ? 'success' as const : 'failed' as const, result: tc.result_summary }
+                    : d,
+                )
+                break
+              }
+              case 'citation': {
+                const c = event.data as SseCitation
+                updated.citations = c.sources as CitationSource[]
                 break
               }
               case 'step_limit': {
@@ -426,10 +545,14 @@ const ChatPage: React.FC = () => {
         )
       }
 
-      // Finalize streaming message
-      setMessages((prev) =>
-        prev.map((m) => (m.id === assistantId ? { ...m, status: 'COMPLETED' } : m)),
-      )
+      setMessages((prev) => {
+        const finalized = prev.map((m) => (m.id === assistantId ? { ...m, status: 'COMPLETED' } : m))
+        const last = [...finalized].reverse().find((m) => m.role !== 'system' && m.content)
+        if (last && sessionId) {
+          setLastMessageMap((p) => ({ ...p, [sessionId]: last.content }))
+        }
+        return finalized
+      })
     } catch (e) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -443,7 +566,71 @@ const ChatPage: React.FC = () => {
     }
   }
 
-  // ── Switch agent ──
+  const handleRegenerate = async (messageId: string) => {
+    if (!activeSessionId || sending) return
+    setSending(true)
+
+    const regenId = `regen_${Date.now()}`
+    const regenMsg: LocalMessage = {
+      id: regenId,
+      role: 'assistant',
+      content: '',
+      time: new Date().toISOString(),
+      avatar: currentAgent?.name?.[0] ?? 'A',
+      agentName: currentAgent?.name,
+      status: 'STREAMING',
+    }
+
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === messageId)
+      if (idx === -1) return [...prev, regenMsg]
+      return [...prev.slice(0, idx), regenMsg]
+    })
+
+    try {
+      const { stream } = regenerateMessage(activeSessionId, messageId)
+      for await (const event of stream) {
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m.id !== regenId) return m
+            const updated = { ...m }
+            switch (event.type) {
+              case 'token': {
+                const t = event.data as SseToken
+                updated.content = (updated.content ?? '') + t.delta
+                break
+              }
+              case 'message_end':
+                updated.status = 'COMPLETED'
+                break
+              case 'error': {
+                const err = event.data as SseError
+                if (!err.recoverable) {
+                  updated.content = updated.content || `错误: ${err.message}`
+                  updated.status = 'FAILED'
+                }
+                break
+              }
+            }
+            return updated
+          }),
+        )
+      }
+      setMessages((prev) =>
+        prev.map((m) => (m.id === regenId ? { ...m, status: 'COMPLETED' } : m)),
+      )
+    } catch (e) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === regenId
+            ? { ...m, content: m.content || `重新生成失败: ${e instanceof Error ? e.message : '未知错误'}`, status: 'FAILED' }
+            : m,
+        ),
+      )
+    } finally {
+      setSending(false)
+    }
+  }
 
   const handleSwitchAgent = async (agentId: string, _agentName: string) => {
     setShowAgentDropdown(false)
@@ -527,6 +714,7 @@ const ChatPage: React.FC = () => {
                     title={s.title ?? '新对话'}
                     agent={agents.find((a) => a.id === s.currentAgentId)?.name ?? '智能体'}
                     time={s.updatedAt}
+                    lastMessage={lastMessageMap[s.id]}
                     active={activeSessionId === s.id}
                     onClick={() => loadSession(s.id)}
                     onDelete={() => handleDeleteSession(s.id)}
@@ -628,9 +816,17 @@ const ChatPage: React.FC = () => {
               </div>
             )}
 
-            {messages.map((msg) => (
-              <MessageBubble key={msg.id} {...msg} />
-            ))}
+            {(() => {
+              const lastAsstIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
+              return messages.map((msg, idx) => (
+                <MessageBubble
+                  key={msg.id}
+                  {...msg}
+                  isLastAssistant={idx === lastAsstIdx}
+                  onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg.id) : undefined}
+                />
+              ))
+            })()}
             <div ref={messagesEndRef} />
           </div>
 
@@ -660,13 +856,12 @@ const ChatPage: React.FC = () => {
                     }
                   }}
                 />
-                {/* Clear Button */}
                 {messageInput && (
                   <button
                     onClick={() => setMessageInput('')}
-                    className="text-text-tertiary hover:text-text-secondary transition-colors"
+                    className="text-xs text-text-tertiary hover:text-text-secondary transition-colors whitespace-nowrap"
                   >
-                    <X className="w-4 h-4" />
+                    清空
                   </button>
                 )}
               </div>
@@ -675,7 +870,7 @@ const ChatPage: React.FC = () => {
               <button
                 onClick={handleSendMessage}
                 disabled={!messageInput.trim() || sending}
-                className={`w-9 h-9 flex items-center justify-center rounded-lg transition-colors flex-shrink-0 ${
+                className={`flex items-center gap-1.5 px-4 h-9 rounded-lg transition-colors flex-shrink-0 text-sm font-medium ${
                   messageInput.trim() && !sending
                     ? 'bg-brand-500 text-white hover:bg-brand-600'
                     : 'bg-gray-100 text-gray-400'
@@ -684,7 +879,10 @@ const ChatPage: React.FC = () => {
                 {sending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Send className="w-4 h-4" />
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>发送</span>
+                  </>
                 )}
               </button>
             </div>
@@ -740,6 +938,54 @@ const ChatPage: React.FC = () => {
               <p className="text-xs text-text-tertiary">无活跃会话</p>
             )}
           </div>
+
+          {(() => {
+            const allToolCalls = messages.flatMap((m) => m.toolCallDetails ?? [])
+            if (allToolCalls.length === 0) return null
+            return (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <Wrench className="w-4 h-4 text-brand-500" />
+                  <span className="text-sm font-semibold text-text-primary">工具执行</span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {allToolCalls.map((tc) => (
+                    <div key={tc.id} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-gray-50">
+                      {tc.status === 'running' ? (
+                        <Loader2 className="w-3 h-3 text-brand-500 animate-spin shrink-0" />
+                      ) : tc.status === 'success' ? (
+                        <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+                      ) : (
+                        <XCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      )}
+                      <span className="text-xs text-text-primary truncate">{tc.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
+          {(() => {
+            const allCitations = messages.flatMap((m) => m.citations ?? [])
+            if (allCitations.length === 0) return null
+            return (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-brand-500" />
+                  <span className="text-sm font-semibold text-text-primary">引用来源</span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {allCitations.map((c, i) => (
+                    <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded-md bg-gray-50">
+                      <FileText className="w-3 h-3 text-text-tertiary shrink-0" />
+                      <span className="text-xs text-text-primary truncate">{c.title ?? c.url ?? `来源 ${i + 1}`}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {currentAgent && (
             <div className="pt-3 border-t border-border-subtle">

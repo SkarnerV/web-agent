@@ -17,7 +17,7 @@ public class SkillCreateRequest {
     private String triggerConditions;
 
     @NotBlank
-    @Pattern(regexp = "yaml|markdown")
+    @Pattern(regexp = "(?i)yaml|markdown")
     private String format;
 
     @NotBlank

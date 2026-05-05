@@ -1,20 +1,29 @@
 import React from 'react'
-import { Bot, Sparkles, Zap, MessageSquare, Wrench, Users } from 'lucide-react'
+import { Bot, Wand2, Plug, BookOpen, Wrench, Users } from 'lucide-react'
 import { Badge } from './Badge'
 import { Button } from './Button'
 
-const iconMap: Record<string, React.FC<{ className?: string }>> = {
-  bot: Bot,
-  sparkles: Sparkles,
-  zap: Zap,
-  message: MessageSquare,
+export type AssetIconType = 'agent' | 'skill' | 'mcp' | 'knowledge'
+
+const iconTypeConfig: Record<AssetIconType, {
+  icon: React.FC<{ className?: string }>
+  bg: string
+  color: string
+}> = {
+  agent: { icon: Bot, bg: 'bg-brand-50', color: 'text-brand-500' },
+  skill: { icon: Wand2, bg: 'bg-purple-50', color: 'text-purple-500' },
+  mcp: { icon: Plug, bg: 'bg-success-50', color: 'text-success-500' },
+  knowledge: { icon: BookOpen, bg: 'bg-warning-50', color: 'text-warning-500' },
 }
 
 export interface AssetCardProps {
   id: string
   name: string
   description: string
+  iconType?: AssetIconType
+  /** @deprecated Use iconType instead */
   iconBg?: string
+  /** @deprecated Use iconType instead */
   iconText?: string
   status?: 'draft' | 'published' | 'debugging' | 'error' | 'info'
   toolCount?: number
@@ -35,8 +44,9 @@ const statusLabel: Record<string, string> = {
 export const AssetCard: React.FC<AssetCardProps> = ({
   name,
   description,
-  iconBg = 'bg-brand-50',
-  iconText = 'bot',
+  iconType,
+  iconBg,
+  iconText,
   status,
   toolCount = 0,
   collabCount = 0,
@@ -44,19 +54,20 @@ export const AssetCard: React.FC<AssetCardProps> = ({
   onUse,
   onEdit,
 }) => {
-  const IconComponent = iconMap[iconText] ?? Bot
-  const iconColorClass = iconBg === 'bg-brand-50' ? 'text-brand-500'
-    : iconBg === 'bg-warning-50' ? 'text-warning-500'
-    : iconBg === 'bg-success-50' ? 'text-success-500'
-    : iconBg === 'bg-error-50' ? 'text-error-500'
-    : 'text-gray-600'
+  const config = iconType ? iconTypeConfig[iconType] : null
+  const resolvedBg = config?.bg ?? iconBg ?? 'bg-brand-50'
+  const resolvedColor = config?.color ?? 'text-brand-500'
+  const IconComponent = config?.icon ?? null
 
   return (
-    <div className="flex-1 p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3">
-      {/* Header Row */}
+    <div className="w-full p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${iconBg}`}>
-          <IconComponent className={`w-5 h-5 ${iconColorClass}`} />
+        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${resolvedBg}`}>
+          {IconComponent ? (
+            <IconComponent className={`w-5 h-5 ${resolvedColor}`} />
+          ) : (
+            <span className={`text-sm font-semibold ${resolvedColor}`}>{iconText ?? name[0]}</span>
+          )}
         </div>
         <div className="flex-1 flex flex-col gap-0.5">
           <span className="text-sm font-semibold text-text-primary">{name}</span>

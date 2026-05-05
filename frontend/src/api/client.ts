@@ -87,8 +87,11 @@ export function put<T>(
   return request<T>('PUT', path, { body })
 }
 
-export function del<T = void>(path: string): Promise<T> {
-  return request<T>('DELETE', path)
+export function del<T = void>(
+  path: string,
+  params?: Record<string, string | number | boolean | undefined>,
+): Promise<T> {
+  return request<T>('DELETE', path, { params })
 }
 
 export function upload<T>(path: string, file: File): Promise<T> {

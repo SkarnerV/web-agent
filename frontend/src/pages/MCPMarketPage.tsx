@@ -1,165 +1,172 @@
-import React from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-
-import { Search, Filter, Plug, ArrowRight, CheckCircle } from 'lucide-react'
+import { Search, Filter, Plug, ArrowRight, Loader2, AlertCircle } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
+import { listMarketItems, importMarketItem } from '../api/market'
+import type { MarketItemVO } from '../api/types'
 
-// Types
-interface MCPCardProps {
-  id: string
-  name: string
-  description: string
-  provider: string
-  status: 'official' | 'community'
-  usageCount: number
-  rating: number
-  features: string[]
-}
+const MCPCard: React.FC<{
+  item: MarketItemVO
+  importing: boolean
+  onUse: () => void
+}> = ({ item, importing, onUse }) => {
+  const tags = item.tags?.split(',').filter(Boolean).map(t => t.trim()) ?? []
 
-// Mock data
-const categories = [
-  { name: '全部', count: 45 },
-  { name: '文件系统', count: 8 },
-  { name: '数据库', count: 12 },
-  { name: '浏览器', count: 6 },
-  { name: 'API 集成', count: 15 },
-  { name: '工具链', count: 4 },
-]
-
-const mcpServers: MCPCardProps[] = [
-  { id: '1', name: 'filesystem', description: '文件系统操作：读写、创建、删除文件和目录', provider: 'Anthropic', status: 'official', usageCount: 5000, rating: 4.9, features: ['读写文件', '目录管理', '权限控制'] },
-  { id: '2', name: 'postgres', description: 'PostgreSQL 数据库连接和查询操作', provider: 'Anthropic', status: 'official', usageCount: 3000, rating: 4.8, features: ['SQL查询', '事务管理', '数据导入'] },
-  { id: '3', name: 'puppeteer', description: '浏览器自动化：截图、点击、填表', provider: 'Community', status: 'community', usageCount: 2000, rating: 4.7, features: ['页面截图', '自动化测试', '表单填充'] },
-  { id: '4', name: 'slack', description: 'Slack API 集成：发送消息、读取频道', provider: 'Community', status: 'community', usageCount: 1500, rating: 4.6, features: ['消息发送', '频道管理', '用户信息'] },
-  { id: '5', name: 'github', description: 'GitHub API：仓库操作、PR 管理、Issue', provider: 'Anthropic', status: 'official', usageCount: 4000, rating: 4.9, features: ['仓库操作', 'PR管理', 'Issue跟踪'] },
-  { id: '6', name: 'sqlite', description: 'SQLite 本地数据库轻量级存储', provider: 'Community', status: 'community', usageCount: 800, rating: 4.5, features: ['本地存储', 'SQL支持', '轻量级'] },
-]
-
-// MCPCard Component
-const MCPCard: React.FC<MCPCardProps & { onUse?: () => void }> = ({
-  name,
-  description,
-  provider,
-  status,
-  usageCount,
-  rating,
-  features,
-  onUse,
-}) => {
   return (
     <div className="p-5 bg-white rounded-xl border border-border-subtle flex flex-col gap-3">
-      {/* Header */}
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 rounded-lg bg-brand-50 flex items-center justify-center">
           <Plug className="w-5 h-5 text-brand-500" />
         </div>
         <div className="flex-1 flex flex-col gap-1">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-text-primary">{name}</span>
-            {status === 'official' && (
-              <Badge variant="published">
-                <CheckCircle className="w-3 h-3 mr-0.5" />
-                官方
-              </Badge>
+            <span className="text-sm font-semibold text-text-primary">{item.assetId}</span>
+            {item.status === 'PUBLISHED' && (
+              <Badge variant="published">官方</Badge>
             )}
           </div>
-          <span className="text-xs text-text-tertiary">{provider}</span>
+          {item.authorName && (
+            <span className="text-xs text-text-tertiary">{item.authorName}</span>
+          )}
         </div>
       </div>
 
-      {/* Description */}
-      <p className="text-sm text-text-secondary line-clamp-2 leading-relaxed">
-        {description}
-      </p>
+      {tags.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          {tags.slice(0, 2).map((tag) => (
+            <span key={tag} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-text-tertiary">
+              {tag}
+            </span>
+          ))}
+          {tags.length > 2 && (
+            <span className="text-xs text-text-tertiary">+{tags.length - 2}</span>
+          )}
+        </div>
+      )}
 
-      {/* Features */}
-      <div className="flex items-center gap-1.5">
-        {features.slice(0, 2).map((feature) => (
-          <span key={feature} className="px-2 py-0.5 bg-gray-100 rounded text-xs text-text-tertiary">
-            {feature}
-          </span>
-        ))}
-        {features.length > 2 && (
-          <span className="text-xs text-text-tertiary">+{features.length - 2}</span>
-        )}
-      </div>
-
-      {/* Meta */}
       <div className="flex items-center gap-2 text-xs text-text-tertiary">
-        <span className="text-warning-500">⭐ {rating}</span>
-        <span>·</span>
-        <span>{usageCount}+ 使用</span>
+        {item.avgRating && (
+          <>
+            <span className="text-warning-500">⭐ {item.avgRating}</span>
+            <span>·</span>
+          </>
+        )}
+        <span>{item.useCount}+ 使用</span>
       </div>
 
-      {/* Divider */}
       <div className="h-px bg-border-subtle" />
 
-      {/* Actions */}
-      <Button variant="primary" onClick={onUse} icon={<ArrowRight className="w-4 h-4" />}>
-        接入
+      <Button
+        variant="primary"
+        onClick={onUse}
+        disabled={importing}
+        icon={importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />}
+      >
+        {importing ? '接入中...' : '接入'}
       </Button>
     </div>
   )
 }
 
-// CategoryItem Component
-const CategoryItem: React.FC<{ name: string; count: number; active?: boolean; onClick?: () => void }> = ({
-  name,
-  count,
-  active = false,
-  onClick,
-}) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`p-4 rounded-xl border text-sm ${
-        active
-          ? 'bg-brand-50 border-brand-500'
-          : 'bg-white border-border-subtle hover:bg-gray-50'
-      }`}
-    >
-      <div className="flex flex-col gap-1">
-        <span className={`font-semibold ${active ? 'text-brand-500' : 'text-text-primary'}`}>
-          {name}
-        </span>
-        <span className={`text-xs ${active ? 'text-brand-500' : 'text-text-tertiary'}`}>
-          {count} 个服务器
-        </span>
-      </div>
-    </button>
-  )
-}
+const CategoryItem: React.FC<{
+  name: string
+  count: number
+  active?: boolean
+  onClick?: () => void
+}> = ({ name, count, active = false, onClick }) => (
+  <button
+    onClick={onClick}
+    className={`p-4 rounded-xl border text-sm ${
+      active
+        ? 'bg-brand-50 border-brand-500'
+        : 'bg-white border-border-subtle hover:bg-gray-50'
+    }`}
+  >
+    <div className="flex flex-col gap-1">
+      <span className={`font-semibold ${active ? 'text-brand-500' : 'text-text-primary'}`}>
+        {name}
+      </span>
+      <span className={`text-xs ${active ? 'text-brand-500' : 'text-text-tertiary'}`}>
+        {count} 个服务器
+      </span>
+    </div>
+  </button>
+)
 
-// MCPMarketPage Component
 const MCPMarketPage: React.FC = () => {
   const navigate = useNavigate()
-  const [searchQuery, setSearchQuery] = React.useState('')
-  const [activeCategory, setActiveCategory] = React.useState('全部')
+  const [searchQuery, setSearchQuery] = useState('')
+  const [activeCategory, setActiveCategory] = useState('全部')
+  const [items, setItems] = useState<MarketItemVO[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [importingId, setImportingId] = useState<string | null>(null)
 
-  const handleUseMCP = (_id: string) => {
-    // Navigate to MCP add page to install
-    navigate('/mcp/add')
+  const fetchItems = useCallback(async (search?: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await listMarketItems({ type: 'MCP', search: search || undefined })
+      setItems(result.data)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '加载失败')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    const delay = searchQuery ? 300 : 0
+    const timer = setTimeout(() => {
+      fetchItems(searchQuery || undefined)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [searchQuery, fetchItems])
+
+  const categories = useMemo(() => {
+    const catMap = new Map<string, number>()
+    for (const item of items) {
+      const cat = item.category || '未分类'
+      catMap.set(cat, (catMap.get(cat) ?? 0) + 1)
+    }
+    return [
+      { name: '全部', count: items.length },
+      ...Array.from(catMap, ([name, count]) => ({ name, count })),
+    ]
+  }, [items])
+
+  const filteredItems = useMemo(() => {
+    if (activeCategory === '全部') return items
+    return items.filter(item => (item.category || '未分类') === activeCategory)
+  }, [items, activeCategory])
+
+  useEffect(() => {
+    setActiveCategory('全部')
+  }, [searchQuery])
+
+  const handleImport = async (itemId: string) => {
+    setImportingId(itemId)
+    try {
+      await importMarketItem(itemId)
+      navigate('/mcp')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '接入失败')
+    } finally {
+      setImportingId(null)
+    }
   }
 
   return (
-    <Layout
-      breadcrumb={[
-        { label: '市场' },
-        { label: 'MCP 市场' },
-      ]}
-    >
+    <Layout breadcrumb={[{ label: '市场' }, { label: 'MCP 市场' }]}>
       <div className="p-8 flex flex-col gap-5 h-full overflow-auto">
-        {/* Header */}
         <div className="flex flex-col gap-1">
           <h1 className="text-2xl font-bold text-text-primary">MCP 市场</h1>
           <p className="text-sm text-text-secondary">官方认证的 MCP Server 集合 · 一键接入</p>
         </div>
 
-        {/* Toolbar */}
         <div className="flex items-center gap-2.5">
-          {/* Search */}
           <div className="flex-1 flex items-center gap-2 px-3 py-2 bg-white border border-border-subtle rounded-md">
             <Search className="w-4 h-4 text-text-tertiary" />
             <input
@@ -170,14 +177,17 @@ const MCPMarketPage: React.FC = () => {
               className="flex-1 bg-transparent text-sm outline-none placeholder:text-text-tertiary"
             />
           </div>
-
-          {/* Filter */}
           <Button variant="secondary" icon={<Filter className="w-4 h-4" />} iconOnly />
         </div>
 
-        {/* Body */}
+        {error && (
+          <div className="p-3 bg-error-50 text-error-500 rounded-lg flex items-center gap-2 text-sm">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {error}
+          </div>
+        )}
+
         <div className="flex gap-4 h-full">
-          {/* Categories Sidebar */}
           <div className="w-[200px] p-4 rounded-xl bg-white border border-border-subtle flex flex-col gap-2">
             {categories.map((cat) => (
               <CategoryItem
@@ -190,15 +200,27 @@ const MCPMarketPage: React.FC = () => {
             ))}
           </div>
 
-          {/* Cards Grid */}
-          <div className="flex-1 grid grid-cols-3 gap-4">
-            {mcpServers.map((mcp) => (
-              <MCPCard
-                key={mcp.id}
-                {...mcp}
-                onUse={() => handleUseMCP(mcp.id)}
-              />
-            ))}
+          <div className="flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="text-center py-20 text-text-tertiary text-sm">
+                {searchQuery ? '没有找到匹配的 MCP Server' : '暂无可用的 MCP Server'}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-4">
+                {filteredItems.map((item) => (
+                  <MCPCard
+                    key={item.id}
+                    item={item}
+                    importing={importingId === item.id}
+                    onUse={() => handleImport(item.id)}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

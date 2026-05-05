@@ -28,7 +28,7 @@ const timeAgo = (iso: string): string => {
   return `${Math.floor(days / 30)}月前`
 }
 
-type TabType = 'all' | 'created' | 'collab' | 'published'
+type TabType = 'all' | 'draft' | 'archived' | 'published'
 
 interface TabConfig {
   key: TabType
@@ -41,7 +41,7 @@ const AgentListPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
-  const [filterStatus, setFilterStatus] = useState<string | null>(null)
+  const [filterStatuses, setFilterStatuses] = useState<Set<AgentStatus>>(new Set())
   const [agents, setAgents] = useState<AgentSummaryVO[]>([])
   const [total, setTotal] = useState(0)
   const [draftCount, setDraftCount] = useState(0)
@@ -62,15 +62,29 @@ const AgentListPage: React.FC = () => {
       }
       if (activeTab === 'published') {
         params.status = 'PUBLISHED'
-      } else if (filterStatus) {
-        params.status = filterStatus as AgentStatus
+      } else if (activeTab === 'draft') {
+        params.status = 'DRAFT'
+      } else if (activeTab === 'archived') {
+        params.status = 'ARCHIVED'
+      } else if (filterStatuses.size === 1) {
+        params.status = [...filterStatuses][0]
       }
-      const result = await listAgents(params)
+      const result = filterStatuses.size > 1
+        ? await (async () => {
+            const results = await Promise.all(
+              [...filterStatuses].map((s) =>
+                listAgents({ status: s, page: currentPage, page_size: pageSize }),
+              ),
+            )
+            const merged = results.flatMap((r) => r.data)
+            const totalSum = results.reduce((acc, r) => acc + r.total, 0)
+            return { data: merged.slice(0, pageSize), total: totalSum }
+          })()
+        : await listAgents(params)
       setAgents(result.data)
       setTotal(result.total)
 
-      // Fetch counts for each status tab (in a real app, these would come from the API)
-      if (activeTab === 'all' && currentPage === 1) {
+      if (activeTab === 'all' && currentPage === 1 && filterStatuses.size === 0) {
         try {
           const [draftRes, pubRes, archRes] = await Promise.all([
             listAgents({ status: 'DRAFT', page: 1, page_size: 1 }),
@@ -89,7 +103,7 @@ const AgentListPage: React.FC = () => {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, activeTab])
+  }, [currentPage, activeTab, filterStatuses])
 
   useEffect(() => {
     fetchAgents()
@@ -97,7 +111,7 @@ const AgentListPage: React.FC = () => {
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [activeTab])
+  }, [activeTab, filterStatuses])
 
   const handleUseAgent = (id: string) => navigate(`/chat?agentId=${id}`)
   const handleEditAgent = (id: string) => navigate(`/agents/edit/${id}`)
@@ -107,9 +121,9 @@ const AgentListPage: React.FC = () => {
 
   const tabs: (TabConfig & { count: number })[] = [
     { key: 'all', label: '全部', count: total },
-    { key: 'created', label: '草稿', count: draftCount },
+    { key: 'draft', label: '草稿', count: draftCount },
     { key: 'published', label: '已发布', count: publishedCount },
-    { key: 'collab', label: '已归档', count: archivedCount },
+    { key: 'archived', label: '已归档', count: archivedCount },
   ]
 
   return (
@@ -159,7 +173,7 @@ const AgentListPage: React.FC = () => {
             {tabs.map((tab) => (
               <button
                 key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => { setActiveTab(tab.key); setFilterStatuses(new Set()) }}
                 className={`px-3.5 py-2 rounded-md text-[13px] font-medium transition-colors ${
                   activeTab === tab.key
                     ? 'bg-brand-50 text-brand-500 font-semibold'
@@ -170,36 +184,59 @@ const AgentListPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {/* Filter Dropdown */}
           <div className="relative">
             <button
               onClick={() => setShowFilterDropdown(!showFilterDropdown)}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-white border border-border-subtle rounded text-xs text-text-secondary hover:border-border-strong transition-colors"
+              className={`flex items-center gap-1 px-2.5 py-1.5 bg-white border rounded text-xs transition-colors ${
+                filterStatuses.size > 0
+                  ? 'border-brand-500 text-brand-500'
+                  : 'border-border-subtle text-text-secondary hover:border-border-strong'
+              }`}
             >
-              筛选{filterStatus ? '中' : ''}
-              <ChevronDown className="w-3 h-3 text-text-tertiary" />
+              筛选{filterStatuses.size > 0 ? ` (${filterStatuses.size})` : ''}
+              <ChevronDown className="w-3 h-3" />
             </button>
             {showFilterDropdown && (
-              <div className="absolute top-full right-0 mt-1 w-[160px] bg-white border border-border-subtle rounded-md shadow-lg z-10">
-                {[
-                  { label: '全部状态', value: null },
-                  { label: '已发布', value: 'PUBLISHED' },
-                  { label: '草稿', value: 'DRAFT' },
-                  { label: '已归档', value: 'ARCHIVED' },
-                ].map((opt) => (
-                  <button
-                    key={opt.label}
-                    onClick={() => {
-                      setFilterStatus(opt.value)
-                      setShowFilterDropdown(false)
-                    }}
-                    className={`w-full px-3 py-2 text-left text-[13px] hover:bg-gray-50 first:rounded-t-md last:rounded-b-md ${
-                      filterStatus === opt.value ? 'bg-brand-50 text-brand-500' : 'text-text-secondary'
-                    }`}
+              <div className="absolute top-full right-0 mt-1 w-[160px] bg-white border border-border-subtle rounded-md shadow-lg z-10 py-1">
+                {([
+                  { label: '草稿', value: 'DRAFT' as AgentStatus },
+                  { label: '已发布', value: 'PUBLISHED' as AgentStatus },
+                  { label: '已归档', value: 'ARCHIVED' as AgentStatus },
+                ]).map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex items-center gap-2 px-3 py-2 text-[13px] hover:bg-gray-50 cursor-pointer text-text-secondary"
                   >
+                    <input
+                      type="checkbox"
+                      checked={filterStatuses.has(opt.value)}
+                      onChange={() => {
+                        setFilterStatuses((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(opt.value)) next.delete(opt.value)
+                          else next.add(opt.value)
+                          return next
+                        })
+                      }}
+                      className="w-3.5 h-3.5 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                    />
                     {opt.label}
-                  </button>
+                  </label>
                 ))}
+                {filterStatuses.size > 0 && (
+                  <>
+                    <div className="h-px bg-border-subtle mx-2 my-1" />
+                    <button
+                      onClick={() => {
+                        setFilterStatuses(new Set())
+                        setShowFilterDropdown(false)
+                      }}
+                      className="w-full px-3 py-1.5 text-left text-xs text-text-tertiary hover:text-brand-500 hover:bg-gray-50"
+                    >
+                      清除筛选
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -228,7 +265,7 @@ const AgentListPage: React.FC = () => {
                   id={agent.id}
                   name={agent.name}
                   description={agent.description ?? ''}
-                  iconText={agent.avatar ?? agent.name[0]}
+                  iconType="agent"
                   status={statusLabel(agent.status)}
                   toolCount={0}
                   collabCount={0}

@@ -57,6 +57,14 @@ public class ChatController {
         return ApiResponse.ok(detail, RequestIdContext.current());
     }
 
+    @DeleteMapping("/sessions/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public ApiResponse<Void> deleteSession(@PathVariable UUID id,
+                                            @CurrentUser UserPrincipal user) {
+        sessionService.deleteSession(id, user.id());
+        return ApiResponse.ok(null, RequestIdContext.current());
+    }
+
     @DeleteMapping("/sessions/{id}/messages")
     public ApiResponse<Void> clearMessages(@PathVariable UUID id,
                                            @CurrentUser UserPrincipal user) {
