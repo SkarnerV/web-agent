@@ -13,12 +13,12 @@
 | Task 8 (Knowledge Base CRUD) | ✅ Complete | 19 (KnowledgeBaseCrudTest) |
 | Task 9 (File) | ✅ Complete | 17 (FileServiceTest) |
 | Task 10 (Model Config) | ✅ Complete | 34 (ModelRegistryImplTest + ModelQueryTest + CustomModelTest) |
-| Task 11 (Market) | 🚧 Partial (entity/mapper/DTO) | — |
+| Task 11 (Market) | ✅ Complete | 31 (PublishTest + UnlistTest + MarketSearchTest + FavoriteReviewTest + MarketImportTest) |
 | Task 12 (OpenAPI, CI) | 📋 Planned | — |
 | Task 13 (E2E) | 📋 Planned | — |
 | Frontend (React + Vite) | 🚧 In Progress | — |
 
-**Total Unit Tests**: 256 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 17 file + 43 ap-app)
+**Total Unit Tests**: 284 ✅ all passing (40 common-core + 51 agent + 36 chat + 69 asset + 28 market + 17 file + 43 ap-app)
 
 ---
 
@@ -28,7 +28,7 @@
 |-----------|--------|------------|
 | **v1.0 MVP Core** (Tasks 1-4) | ✅ Shipped | 100% |
 | **v1.1 Asset Modules** (Tasks 5-10) | ✅ Complete | 100% |
-| **v1.2 Market & File** (Tasks 9, 11) | 🚧 In Progress (File ✅, Market 🚧) | — |
+| **v1.2 Market & File** (Tasks 9, 11) | ✅ Complete | — |
 | **v2.0 Security & Auth** | 📋 Planned | — |
 
 ---
@@ -159,14 +159,22 @@ See previous sessions. Key commits:
 
 ---
 
-### 🚧 Task 11: Market Module
+### ✅ Task 11: Market Module
 
 | Subtask | Description | Status |
 |---------|-------------|--------|
-| 11.1-11.5 | Entity/Mapper/DTO layer | ✅ |
-| — | Controller & Service | 📋 Pending |
+| 11.1 | Asset publish (POST /publish, snapshot + market item) | ✅ |
+| 11.2 | Unlist & visibility (PUT /items/{id}/visibility) | ✅ |
+| 11.3 | Browse & search (GET /items, GET /items/{id}, GET /featured) | ✅ |
+| 11.4 | Favorites & reviews (POST/DELETE /favorite, POST/GET /reviews) | ✅ |
+| 11.5 | Market import (POST /items/{id}/import, copy + use_count++) | ✅ |
 
-**Files**: MarketItemEntity, FavoriteEntity, ReviewEntity, Mappers, DTOs, Converter
+**Files**:
+- `ap-module-market/controller/MarketController.java`
+- `ap-module-market/service/MarketService.java`
+- `ap-module-market/converter/MarketConverter.java` (extended)
+
+**Tests**: PublishTest (5), UnlistTest (4), MarketSearchTest (7), FavoriteReviewTest (7), MarketImportTest (5)
 
 ---
 
@@ -174,7 +182,7 @@ See previous sessions. Key commits:
 
 | Task | Description | Priority |
 |------|-------------|----------|
-| **Task 11** | Market controller + service (publish/search/favorite/import) | Medium |
+| **Task 11** | Market controller + service (publish/search/favorite/import) | ✅ Complete |
 | **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
 | **Task 13** | End-to-end smoke tests | Low |
 | **Task 12** | OpenAPI docs (SpringDoc), error contract tests, CI pipeline | Low |
@@ -213,9 +221,10 @@ Design system (17 reusable components): `design/agent-platform-ui.pen`
 | ap-module-agent | 51 | ✅ Pass |
 | ap-module-chat | 36 | ✅ Pass |
 | ap-module-asset | 69 | ✅ Pass |
+| ap-module-market | 28 | ✅ Pass |
 | ap-module-file | 17 | ✅ Pass |
 | ap-app (Smoke/Flyway/Index) | 43 | ✅ Pass |
-| **Total** | **256** | **✅ All Pass** |
+| **Total** | **284** | **✅ All Pass** |
 
 ---
 
@@ -256,9 +265,9 @@ Design system (17 reusable components): `design/agent-platform-ui.pen`
 
 ---
 
-**Last Updated**: 2026-05-04  
+**Last Updated**: 2026-05-05  
 **Total Commits**: 26  
-**Unit Tests**: 256 passing  
-**Controllers**: 7 (Agent, Chat, Skill, MCP, Knowledge, File, Model)  
-**Services**: 8 (Agent, ChatSession, Skill, MCP, KnowledgeBase, File, FileCleaner, Model)  
+**Unit Tests**: 284 passing  
+**Controllers**: 8 (Agent, Chat, Skill, MCP, Knowledge, File, Model, Market)  
+**Services**: 9 (Agent, ChatSession, Skill, MCP, KnowledgeBase, File, FileCleaner, Model, Market)  
 **Design Components**: 17 reusable (agent-platform-ui.pen)

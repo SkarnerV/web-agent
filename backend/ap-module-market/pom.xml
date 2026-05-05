@@ -26,6 +26,14 @@
             <groupId>com.agentplatform</groupId>
             <artifactId>common-redis</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>ap-module-agent</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.agentplatform</groupId>
+            <artifactId>ap-module-asset</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.springframework.boot</groupId>

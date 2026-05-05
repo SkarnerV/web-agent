@@ -50,7 +50,12 @@
       "Bash(export JAVA_HOME=/opt/homebrew/opt/openjdk@21)",
       "Bash(/opt/homebrew/opt/openjdk@21/bin/java -version)",
       "Bash(mvn install *)",
-      "Bash(mvn compile *)"
+      "Bash(mvn compile *)",
+      "Bash(sed -i '' 's/favoriteMapper\\\\.insert\\(any\\(\\)\\)/favoriteMapper.insert\\(any\\(FavoriteEntity.class\\)\\)/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
+      "Bash(sed -i '' 's/favoriteMapper\\\\.delete\\(any\\(/favoriteMapper.delete\\(any\\(/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
+      "Bash(sed -i '' 's/reviewMapper\\\\.insert\\(any\\(\\)\\)/reviewMapper.insert\\(any\\(ReviewEntity.class\\)\\)/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
+      "Bash(sed -i '' 's/marketItemMapper\\\\.updateById\\(any\\(\\)\\)/marketItemMapper.updateById\\(any\\(MarketItemEntity.class\\)\\)/g' java/com/agentplatform/market/service/FavoriteReviewTest.java)",
+      "Bash(sed -i '' 's/agentMapper\\\\.insert\\(any\\(\\)\\)/agentMapper.insert\\(any\\(AgentEntity.class\\)\\)/g' java/com/agentplatform/market/service/MarketImportTest.java)"
     ]
   }
 }
