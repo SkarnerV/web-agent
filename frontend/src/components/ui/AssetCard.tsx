@@ -60,7 +60,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
   const IconComponent = config?.icon ?? null
 
   return (
-    <div className="w-full p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3">
+    <div className="w-full min-w-0 p-5 bg-white rounded-lg border border-border-subtle flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${resolvedBg}`}>
           {IconComponent ? (
@@ -69,8 +69,8 @@ export const AssetCard: React.FC<AssetCardProps> = ({
             <span className={`text-sm font-semibold ${resolvedColor}`}>{iconText ?? name[0]}</span>
           )}
         </div>
-        <div className="flex-1 flex flex-col gap-0.5">
-          <span className="text-sm font-semibold text-text-primary">{name}</span>
+        <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+          <span className="truncate text-sm font-semibold text-text-primary">{name}</span>
           {status && <Badge variant={status}>{statusLabel[status]}</Badge>}
         </div>
       </div>
@@ -81,7 +81,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
       </p>
 
       {/* Meta */}
-      <div className="flex items-center gap-3 text-sm text-text-tertiary">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-text-tertiary">
         <span className="flex items-center gap-1">
           <Wrench className="w-3.5 h-3.5" />
           工具 {toolCount}
@@ -97,7 +97,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
       <div className="h-px bg-border-subtle" />
 
       {/* Actions */}
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={onUse}>使用</Button>
         <Button variant="secondary" onClick={onEdit}>编辑</Button>
       </div>

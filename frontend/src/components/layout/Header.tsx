@@ -26,12 +26,12 @@ export const Header: React.FC<HeaderProps> = ({
   onUserClick
 }) => {
   return (
-    <header className="h-14 bg-white border-b border-border-subtle flex items-center justify-between px-6">
+    <header className="h-14 bg-white border-b border-border-subtle flex items-center justify-between gap-4 px-4 md:px-6">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2">
+      <div className="min-w-0 flex items-center gap-2">
         {breadcrumb.map((item, index) => (
           <React.Fragment key={index}>
-            <span className={`text-sm ${index === breadcrumb.length - 1 ? 'font-medium text-text-primary' : 'text-text-tertiary'}`}>
+            <span className={`truncate text-sm ${index === breadcrumb.length - 1 ? 'font-medium text-text-primary' : 'text-text-tertiary'}`}>
               {item.label}
             </span>
             {index < breadcrumb.length - 1 && (
@@ -42,9 +42,9 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Right Section */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 md:gap-3">
         {/* Search */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md w-48 lg:w-60">
+        <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-gray-100 rounded-md w-40 lg:w-60">
           <Search className="w-3.5 h-3.5 text-text-tertiary" />
           <input
             type="text"
@@ -65,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
         {/* User */}
         <button
           onClick={onUserClick}
-          className="flex items-center gap-2 px-2.5 py-1 bg-gray-100 rounded-full"
+          className="flex items-center gap-2 px-2 py-1 bg-gray-100 rounded-full"
         >
           <div className="w-7 h-7 bg-brand-500 rounded-full flex items-center justify-center">
             {userAvatar ? (
@@ -74,8 +74,8 @@ export const Header: React.FC<HeaderProps> = ({
               <span className="text-sm font-semibold text-white">{userName[0]}</span>
             )}
           </div>
-          <span className="text-sm font-medium text-text-primary">{userName}</span>
-          <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
+          <span className="hidden lg:block text-sm font-medium text-text-primary">{userName}</span>
+          <ChevronDown className="hidden lg:block w-3.5 h-3.5 text-text-tertiary" />
         </button>
       </div>
     </header>

@@ -128,14 +128,14 @@ const AgentListPage: React.FC = () => {
 
   return (
     <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }]}>
-      <div className="p-8 flex flex-col gap-5 h-full overflow-auto">
+      <div className="p-6 md:p-8 flex flex-col gap-5 h-full overflow-auto">
         {/* Title Row */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="flex flex-col gap-1 flex-1">
             <h1 className="text-2xl font-bold text-text-primary">我的智能体</h1>
             <p className="text-[13px] text-text-tertiary">共 {total} 个智能体</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:self-start xl:self-auto">
             {error && (
               <button
                 onClick={fetchAgents}
@@ -146,7 +146,7 @@ const AgentListPage: React.FC = () => {
               </button>
             )}
             {/* Search */}
-            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-border-subtle rounded-md w-[220px]">
+            <div className="flex items-center gap-2 px-3 py-2 bg-white border border-border-subtle rounded-md w-full sm:w-[220px]">
               <Search className="w-3.5 h-3.5 text-text-tertiary flex-shrink-0" />
               <input
                 type="text"
@@ -167,9 +167,9 @@ const AgentListPage: React.FC = () => {
         </div>
 
         {/* Tabs and Filters */}
-        <div className="flex items-center">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           {/* Pill Tabs */}
-          <div className="flex items-center gap-1 flex-1">
+          <div className="flex flex-wrap items-center gap-1 flex-1">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -258,7 +258,7 @@ const AgentListPage: React.FC = () => {
 
         {!loading && !error && (
           <>
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 2xl:grid-cols-3">
               {agents.map((agent) => (
                 <AssetCard
                   key={agent.id}

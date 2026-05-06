@@ -95,18 +95,18 @@ const SessionItem: React.FC<{
         onClick()
       }
     }}
-    className={`w-full p-2.5 rounded-lg text-left transition-colors group relative cursor-pointer ${
+    className={`w-full min-w-0 p-2.5 rounded-lg text-left transition-colors group relative cursor-pointer ${
       active ? 'bg-brand-50' : 'hover:bg-gray-50'
     }`}
   >
-    <div className="flex flex-col gap-1">
-      <span className="text-sm font-medium text-text-primary truncate pr-5">{title || '新对话'}</span>
+    <div className="min-w-0 flex flex-col gap-1">
+      <span className="truncate pr-5 text-sm font-medium text-text-primary">{title || '新对话'}</span>
       {lastMessage && (
-        <span className="text-xs text-text-tertiary truncate block">{lastMessage}</span>
+        <span className="block truncate pr-2 text-xs text-text-tertiary">{lastMessage}</span>
       )}
-      <div className="flex items-center gap-2">
-        <span className="text-xs text-text-tertiary">{agent}</span>
-        <span className="text-xs text-text-tertiary">{formatTime(time)}</span>
+      <div className="flex min-w-0 items-center gap-2">
+        <span className="min-w-0 flex-1 truncate text-xs text-text-tertiary">{agent}</span>
+        <span className="shrink-0 text-xs text-text-tertiary">{formatTime(time)}</span>
       </div>
     </div>
     <button
@@ -350,7 +350,7 @@ const ChatPage: React.FC = () => {
   const [sessionSearch, setSessionSearch] = useState('')
 
   // Context panel
-  const [showContextPanel, setShowContextPanel] = useState(true)
+  const [showContextPanel, setShowContextPanel] = useState(() => window.innerWidth >= 1280)
 
   // Last message previews per session
   const [lastMessageMap, setLastMessageMap] = useState<Record<string, string>>({})
@@ -377,6 +377,17 @@ const ChatPage: React.FC = () => {
     listAgents({ page_size: 50 })
       .then((r) => setAgents(r.data))
       .catch(() => { /* ignore */ })
+  }, [])
+
+  useEffect(() => {
+    const mql = window.matchMedia('(min-width: 1280px)')
+    const handleViewportChange = (event: MediaQueryListEvent) => {
+      setShowContextPanel(event.matches)
+    }
+
+    setShowContextPanel(mql.matches)
+    mql.addEventListener('change', handleViewportChange)
+    return () => mql.removeEventListener('change', handleViewportChange)
   }, [])
 
   // Auto-create session from ?agentId=
@@ -749,9 +760,9 @@ const ChatPage: React.FC = () => {
         onCreateClick={() => navigate('/create')}
       />
 
-      <div className="flex-1 flex">
+      <div className="relative flex-1 flex min-w-0">
         {/* Session List */}
-        <div className="w-[260px] bg-white border-r border-border-subtle p-3 flex flex-col gap-3 overflow-y-auto">
+        <div className="hidden bg-white border-r border-border-subtle p-3 md:flex md:w-[240px] md:flex-col md:gap-3 md:overflow-y-auto xl:w-[260px]">
           <button
             onClick={handleNewChat}
             disabled={creatingSession}
@@ -809,9 +820,9 @@ const ChatPage: React.FC = () => {
         </div>
 
         {/* Chat Area */}
-        <div className="flex-1 flex flex-col bg-bg-canvas">
+        <div className="flex-1 min-w-0 flex flex-col bg-bg-canvas">
           {/* Top Bar */}
-          <div className="h-14 bg-white border-b border-border-subtle px-6 flex items-center gap-3">
+          <div className="h-14 bg-white border-b border-border-subtle px-4 md:px-6 flex items-center gap-3">
             {/* Agent Selector - Pill Style */}
             <div className="relative">
               <button
@@ -821,7 +832,7 @@ const ChatPage: React.FC = () => {
                 <div className="w-6 h-6 rounded-full bg-brand-500 flex items-center justify-center">
                   <Bot className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="text-[13px] font-semibold text-text-primary">
+                <span className="max-w-[180px] truncate text-[13px] font-semibold text-text-primary md:max-w-[220px]">
                   {currentAgent?.name ?? '选择智能体'}
                 </span>
                 <ChevronDown className="w-3.5 h-3.5 text-text-tertiary" />
@@ -854,7 +865,7 @@ const ChatPage: React.FC = () => {
 
             {/* Session Title */}
             {activeSession && (
-              <span className="text-sm font-medium text-text-secondary flex-1">
+              <span className="min-w-0 flex-1 truncate text-sm font-medium text-text-secondary">
                 {activeSession.title ?? '新对话'}
               </span>
             )}
@@ -877,7 +888,7 @@ const ChatPage: React.FC = () => {
           </div>
 
           {/* Message Area */}
-          <div className="flex-1 overflow-y-auto px-8 py-6 flex flex-col gap-5">
+          <div className="flex-1 overflow-y-auto px-4 py-6 md:px-8 flex flex-col gap-5">
             {messagesLoading && (
               <div className="flex justify-center py-8">
                 <Loader2 className="w-5 h-5 animate-spin text-text-tertiary" />
@@ -908,8 +919,8 @@ const ChatPage: React.FC = () => {
           </div>
 
           {/* Input Area */}
-          <div className="px-6 pb-6 pt-4 bg-white border-t border-border-subtle">
-            <div className="flex items-end gap-3">
+          <div className="px-4 pb-6 pt-4 bg-white border-t border-border-subtle md:px-6">
+            <div className="flex items-end gap-2 md:gap-3">
               {/* Attach Button */}
               <button className="w-9 h-9 flex items-center justify-center rounded-lg text-text-tertiary hover:text-text-secondary hover:bg-gray-100 transition-colors flex-shrink-0">
                 <Paperclip className="w-4 h-4" />
@@ -968,7 +979,7 @@ const ChatPage: React.FC = () => {
 
         {/* Context Panel */}
         {showContextPanel && (
-        <div className="w-[300px] bg-white border-l border-border-subtle p-5 flex flex-col gap-5 overflow-y-auto">
+        <div className="absolute inset-y-0 right-0 z-20 w-[300px] max-w-full bg-white border-l border-border-subtle p-5 flex flex-col gap-5 overflow-y-auto shadow-xl xl:static xl:w-[300px] xl:shadow-none">
           <div className="flex flex-col gap-3">
             <div className="flex items-center gap-2">
               <BookOpen className="w-4 h-4 text-brand-500" />

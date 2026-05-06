@@ -134,12 +134,12 @@ const DashboardPage: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex gap-4">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 2xl:grid-cols-4">
           {quickActions.map((action, index) => (
             <button
               key={index}
               onClick={action.onClick}
-              className="flex-1 bg-white rounded-xl border border-border-subtle flex flex-col gap-2 p-5 hover:shadow-md hover:border-border-strong transition-all"
+              className="min-w-0 bg-white rounded-xl border border-border-subtle flex flex-col gap-2 p-5 text-left hover:shadow-md hover:border-border-strong transition-all"
             >
               <div className={`w-10 h-10 rounded-[10px] flex items-center justify-center ${action.iconBg}`}>
                 {action.icon}
@@ -176,9 +176,9 @@ const DashboardPage: React.FC = () => {
               暂无智能体
             </div>
           ) : (
-            <div className="flex gap-4">
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2 2xl:grid-cols-4">
               {recentAgents.map((agent) => (
-                <div key={agent.id} className="flex-1">
+                <div key={agent.id} className="min-w-0">
                   <AssetCard
                     id={agent.id}
                     name={agent.name}
@@ -197,8 +197,8 @@ const DashboardPage: React.FC = () => {
           )}
         </div>
 
-        <div className="flex gap-4">
-          <div className="flex-1 bg-white rounded-xl border border-border-subtle flex flex-col gap-4 p-6">
+        <div className="grid grid-cols-1 gap-4 2xl:grid-cols-2">
+          <div className="bg-white rounded-xl border border-border-subtle flex flex-col gap-4 p-6">
             <span className="text-[15px] font-semibold text-text-primary">
               我的资产统计
             </span>
@@ -208,7 +208,7 @@ const DashboardPage: React.FC = () => {
                 <Loader2 className="w-5 h-5 text-brand-500 animate-spin" />
               </div>
             ) : (
-              <div className="flex gap-6">
+              <div className="grid grid-cols-2 gap-6 xl:grid-cols-4">
                 {stats.map((stat) => (
                   <div key={stat.label} className="flex-1 flex flex-col gap-1">
                     <span className="text-xs text-text-tertiary">
@@ -223,7 +223,7 @@ const DashboardPage: React.FC = () => {
             )}
           </div>
 
-          <div className="flex-1 bg-white rounded-xl border border-border-subtle flex flex-col gap-3 p-6">
+          <div className="bg-white rounded-xl border border-border-subtle flex flex-col gap-3 p-6">
             <div className="flex items-center">
               <span className="flex-1 text-[15px] font-semibold text-text-primary">
                 市场精选

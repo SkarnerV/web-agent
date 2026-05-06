@@ -80,7 +80,15 @@
       "Bash(node *)",
       "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST http://localhost:8080/api/v1/skills -H 'Content-Type: application/json' -d '{\"name\":\"Test Skill\",\"format\":\"YAML\",\"content\":\"name: test\"}')",
       "Bash(curl -s -w '\\\\nHTTP %{http_code}\\\\n' -X POST http://localhost:8080/api/v1/skills -H 'Content-Type: application/json' -d '{\"name\":\"Test Skill\",\"format\":\"yaml\",\"content\":\"name: test\"}')",
-      "Bash(lsof -ti:8080)"
+      "Bash(lsof -ti:8080)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8080/api/v1/agents?page=1\\\\&page_size=1)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s \"http://localhost:8080/api/v1/agents?page=1&page_size=1\")",
+      "Bash(npx @playwright/mcp@latest --port 8931 --host localhost --headless --browser chromium --viewport-size \"1440x900\" --console-level \"error\" --allowed-hosts '*')",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8931/sse)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" -X POST http://localhost:8931/message)",
+      "Bash(curl -s -X POST http://localhost:8931/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -H 'mcp-session-id: 2ada9da6-c243-4697-92e2-12e6f5b0f4b3' -d '{ *)",
+      "Bash(npm ls *)"
     ]
   }
 }

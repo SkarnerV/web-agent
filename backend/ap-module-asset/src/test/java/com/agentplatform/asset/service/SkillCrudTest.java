@@ -60,6 +60,7 @@ class SkillCrudTest {
             request.setName("Test Skill");
             request.setFormat("yaml");
             request.setContent("name: test\ndescription: hello");
+            request.setTriggerConditions("test, report");
 
             SkillEntity entity = buildSkillEntity("Test Skill", "draft");
             when(skillConverter.toEntity(request)).thenReturn(entity);
@@ -85,6 +86,7 @@ class SkillCrudTest {
             verify(skillMapper).insert(captor.capture());
             assertThat(captor.getValue().getStatus()).isEqualTo("draft");
             assertThat(captor.getValue().getVisibility()).isEqualTo("private");
+            assertThat(captor.getValue().getTriggerConditions()).isEqualTo("[\"test\",\"report\"]");
         }
 
         @Test

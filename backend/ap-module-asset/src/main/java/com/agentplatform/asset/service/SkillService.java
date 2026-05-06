@@ -15,6 +15,8 @@ import com.agentplatform.common.mybatis.mapper.AssetReferenceMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ import java.util.*;
 public class SkillService {
 
     private static final Logger log = LoggerFactory.getLogger(SkillService.class);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final SkillMapper skillMapper;
     private final SkillConverter skillConverter;
@@ -54,6 +57,7 @@ public class SkillService {
         }
 
         SkillEntity entity = skillConverter.toEntity(request);
+        entity.setTriggerConditions(normalizeTriggerConditions(request.getTriggerConditions()));
         entity.setOwnerId(currentUserId);
         entity.setStatus(AssetStatus.DRAFT.getValue());
         entity.setVisibility(AssetVisibility.PRIVATE.name().toLowerCase());
@@ -105,7 +109,9 @@ public class SkillService {
 
         if (request.getName() != null) entity.setName(request.getName());
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
-        if (request.getTriggerConditions() != null) entity.setTriggerConditions(request.getTriggerConditions());
+        if (request.getTriggerConditions() != null) {
+            entity.setTriggerConditions(normalizeTriggerConditions(request.getTriggerConditions()));
+        }
         if (request.getFormat() != null) entity.setFormat(request.getFormat().toLowerCase());
         if (request.getContent() != null) entity.setContent(request.getContent());
         if ("yaml".equals(entity.getFormat()) && request.getContent() != null) {
@@ -195,6 +201,31 @@ public class SkillService {
         } catch (Exception e) {
             throw new BizException(ErrorCode.INVALID_REQUEST,
                     Map.of("reason", "Invalid YAML content: " + e.getMessage()));
+        }
+    }
+
+    private String normalizeTriggerConditions(String triggerConditions) {
+        if (!StringUtils.hasText(triggerConditions)) {
+            return null;
+        }
+
+        String trimmed = triggerConditions.trim();
+        try {
+            OBJECT_MAPPER.readTree(trimmed);
+            return trimmed;
+        } catch (JsonProcessingException ignored) {
+            // The frontend exposes trigger conditions as plain keywords. Store them as JSONB.
+        }
+
+        List<String> keywords = Arrays.stream(trimmed.split("[,\\n]"))
+                .map(String::trim)
+                .filter(StringUtils::hasText)
+                .toList();
+        try {
+            return OBJECT_MAPPER.writeValueAsString(keywords.isEmpty() ? List.of(trimmed) : keywords);
+        } catch (JsonProcessingException e) {
+            throw new BizException(ErrorCode.INVALID_REQUEST,
+                    Map.of("reason", "Invalid trigger conditions: " + e.getMessage()));
         }
     }
 }
