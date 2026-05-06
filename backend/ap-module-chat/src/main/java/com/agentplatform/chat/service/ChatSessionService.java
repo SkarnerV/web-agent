@@ -4,8 +4,10 @@ import com.agentplatform.chat.converter.ChatConverter;
 import com.agentplatform.chat.dto.*;
 import com.agentplatform.chat.entity.ChatMessageEntity;
 import com.agentplatform.chat.entity.ChatSessionEntity;
+import com.agentplatform.chat.entity.ChatSessionStateEntity;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
 import com.agentplatform.chat.mapper.ChatSessionMapper;
+import com.agentplatform.chat.mapper.ChatSessionStateMapper;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
 import com.agentplatform.common.core.response.PageResult;
@@ -24,13 +26,16 @@ public class ChatSessionService {
 
     private final ChatSessionMapper sessionMapper;
     private final ChatMessageMapper messageMapper;
+    private final ChatSessionStateMapper sessionStateMapper;
     private final ChatConverter chatConverter;
 
     public ChatSessionService(ChatSessionMapper sessionMapper,
                               ChatMessageMapper messageMapper,
+                              ChatSessionStateMapper sessionStateMapper,
                               ChatConverter chatConverter) {
         this.sessionMapper = sessionMapper;
         this.messageMapper = messageMapper;
+        this.sessionStateMapper = sessionStateMapper;
         this.chatConverter = chatConverter;
     }
 
@@ -89,6 +94,9 @@ public class ChatSessionService {
     @Transactional
     public void deleteSession(UUID sessionId, UUID userId) {
         getSessionOrThrow(sessionId, userId);
+        sessionStateMapper.delete(
+                new LambdaQueryWrapper<ChatSessionStateEntity>()
+                        .eq(ChatSessionStateEntity::getSessionId, sessionId));
         messageMapper.delete(
                 new LambdaQueryWrapper<ChatMessageEntity>()
                         .eq(ChatMessageEntity::getSessionId, sessionId));

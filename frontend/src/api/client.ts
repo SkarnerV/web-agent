@@ -57,7 +57,15 @@ async function request<T>(
     return undefined as T
   }
 
-  const json: ApiResponse<T> = await res.json()
+  const text = await res.text()
+  if (!text) {
+    if (res.ok) {
+      return undefined as T
+    }
+    throw new ApiError(res.status, null)
+  }
+
+  const json: ApiResponse<T> = JSON.parse(text)
 
   if (!res.ok || !json.success) {
     throw new ApiError(res.status, json)

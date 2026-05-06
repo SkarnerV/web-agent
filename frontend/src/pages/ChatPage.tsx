@@ -22,6 +22,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { Sidebar } from '../components/layout/Sidebar'
+import { ApiError } from '../api/client'
 import {
   listSessions,
   getSession,
@@ -80,9 +81,10 @@ const SessionItem: React.FC<{
   time: string
   lastMessage?: string
   active?: boolean
+  isDeleting?: boolean
   onClick: () => void
   onDelete: () => void
-}> = ({ title, agent, time, lastMessage, active, onClick, onDelete }) => (
+}> = ({ title, agent, time, lastMessage, active, isDeleting, onClick, onDelete }) => (
   <div
     role="button"
     tabIndex={0}
@@ -108,11 +110,12 @@ const SessionItem: React.FC<{
       </div>
     </div>
     <button
-      onClick={(e) => { e.stopPropagation(); onDelete() }}
+      onClick={(e) => { e.stopPropagation(); if (!isDeleting) onDelete() }}
+      disabled={isDeleting}
       aria-label="删除对话"
-      className="absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-error-500 hover:bg-error-50 opacity-0 group-hover:opacity-100 transition-all"
+      className="absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-error-500 hover:bg-error-50 opacity-0 group-hover:opacity-100 transition-all disabled:cursor-not-allowed disabled:opacity-100"
     >
-      <span className="text-[10px]">✕</span>
+      {isDeleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <span className="text-[10px]">✕</span>}
     </button>
   </div>
 )
@@ -325,6 +328,7 @@ const ChatPage: React.FC = () => {
   const [sessions, setSessions] = useState<ChatSessionVO[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
   const [activeSessionId, setActiveSessionId] = useState('')
+  const [deletingSessionIds, setDeletingSessionIds] = useState<Set<string>>(() => new Set())
 
   // Agents
   const [agents, setAgents] = useState<AgentSummaryVO[]>([])
@@ -450,20 +454,50 @@ const ChatPage: React.FC = () => {
 
   const handleDeleteSession = async (sessionId: string) => {
     if (!window.confirm('确认删除此对话？')) return
+    if (deletingSessionIds.has(sessionId)) return
+
+    const isActiveDelete = activeSessionId === sessionId
+    const deletedIndex = sessions.findIndex((s) => s.id === sessionId)
+    const nextSession = isActiveDelete
+      ? sessions[deletedIndex + 1] ?? sessions[deletedIndex - 1]
+      : undefined
+
+    setDeletingSessionIds((prev) => new Set(prev).add(sessionId))
+    const removeDeletedSession = () => {
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+      setLastMessageMap((prev) => {
+        const next = { ...prev }
+        delete next[sessionId]
+        return next
+      })
+
+      if (isActiveDelete) {
+        if (nextSession) {
+          loadSession(nextSession.id)
+        } else {
+          setActiveSessionId('')
+          setMessages([])
+        }
+      }
+    }
+
     try {
       await deleteSession(sessionId)
-    } catch {
-      // proceed with local removal even if API fails
-    }
-    setSessions((prev) => prev.filter((s) => s.id !== sessionId))
-    if (activeSessionId === sessionId) {
-      const remaining = sessions.filter((s) => s.id !== sessionId)
-      if (remaining.length > 0) {
-        loadSession(remaining[0].id)
-      } else {
-        setActiveSessionId('')
-        setMessages([])
+      removeDeletedSession()
+      void fetchSessions()
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 404) {
+        removeDeletedSession()
+        void fetchSessions()
+        return
       }
+      alert('删除对话失败，请稍后重试')
+    } finally {
+      setDeletingSessionIds((prev) => {
+        const next = new Set(prev)
+        next.delete(sessionId)
+        return next
+      })
     }
   }
 
@@ -758,6 +792,7 @@ const ChatPage: React.FC = () => {
                     time={s.updatedAt}
                     lastMessage={lastMessageMap[s.id]}
                     active={activeSessionId === s.id}
+                    isDeleting={deletingSessionIds.has(s.id)}
                     onClick={() => loadSession(s.id)}
                     onDelete={() => handleDeleteSession(s.id)}
                   />

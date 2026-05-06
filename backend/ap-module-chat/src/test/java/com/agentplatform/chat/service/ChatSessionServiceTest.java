@@ -7,6 +7,7 @@ import com.agentplatform.chat.entity.ChatMessageEntity;
 import com.agentplatform.chat.entity.ChatSessionEntity;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
 import com.agentplatform.chat.mapper.ChatSessionMapper;
+import com.agentplatform.chat.mapper.ChatSessionStateMapper;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,6 +33,7 @@ class ChatSessionServiceTest {
 
     @Mock private ChatSessionMapper sessionMapper;
     @Mock private ChatMessageMapper messageMapper;
+    @Mock private ChatSessionStateMapper sessionStateMapper;
     @Mock private ChatConverter chatConverter;
 
     private ChatSessionService service;
@@ -42,7 +44,7 @@ class ChatSessionServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new ChatSessionService(sessionMapper, messageMapper, chatConverter);
+        service = new ChatSessionService(sessionMapper, messageMapper, sessionStateMapper, chatConverter);
     }
 
     @Nested
@@ -129,6 +131,26 @@ class ChatSessionServiceTest {
 
             verify(messageMapper).delete(any());
             verify(sessionMapper, never()).deleteById(any(java.io.Serializable.class));
+        }
+    }
+
+    @Nested
+    @DisplayName("deleteSession")
+    class DeleteSession {
+
+        @Test
+        @DisplayName("deletes session states, messages, and session")
+        void deletesSessionAndChildren() {
+            ChatSessionEntity entity = new ChatSessionEntity()
+                    .setId(SESSION_ID)
+                    .setUserId(USER_ID);
+            when(sessionMapper.selectById(SESSION_ID)).thenReturn(entity);
+
+            service.deleteSession(SESSION_ID, USER_ID);
+
+            verify(sessionStateMapper).delete(any());
+            verify(messageMapper).delete(any());
+            verify(sessionMapper).deleteById(SESSION_ID);
         }
     }
 
