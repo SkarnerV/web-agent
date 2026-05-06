@@ -4,7 +4,7 @@ import { ChevronLeft, Check, Bot, Sparkles, Zap, MessageSquare, X } from 'lucide
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { getAgent, updateAgent } from '../api/agent'
+import { getAgent, updateAgent, deleteAgent } from '../api/agent'
 import { publishAsset } from '../api/market'
 import { listAllModels } from '../api/model'
 import { ApiError } from '../api/client'
@@ -244,6 +244,28 @@ const AgentEditPage: React.FC = () => {
     }
   }
 
+  const handleDelete = async () => {
+    if (!id || !formData.name) return
+    if (!window.confirm(`确定要删除 "${formData.name}" 吗？此操作不可撤销。`)) return
+    try {
+      await deleteAgent(id)
+      navigate('/agents')
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        if (window.confirm('该智能体被其他资源引用，是否强制删除？')) {
+          try {
+            await deleteAgent(id, true)
+            navigate('/agents')
+          } catch (e2) {
+            alert(e2 instanceof Error ? e2.message : '删除失败')
+          }
+        }
+      } else {
+        alert(e instanceof Error ? e.message : '删除失败')
+      }
+    }
+  }
+
   if (loading) {
     return (
       <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }, { label: '编辑' }]}>
@@ -269,6 +291,12 @@ const AgentEditPage: React.FC = () => {
           编辑智能体：{formData.name}
         </span>
         <div className="flex items-center gap-2">
+          <button
+            onClick={handleDelete}
+            className="px-3 py-1.5 rounded-md text-[13px] font-medium text-error-500 hover:bg-error-50 transition-colors"
+          >
+            删除
+          </button>
           <Button variant="secondary" onClick={handleSave} disabled={saving}>
             {saving ? '保存中...' : '保存草稿'}
           </Button>

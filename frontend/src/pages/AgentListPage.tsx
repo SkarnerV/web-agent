@@ -4,7 +4,8 @@ import { Plus, RefreshCw, Search, ChevronLeft, ChevronRight, ChevronDown } from 
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { AssetCard } from '../components/ui/AssetCard'
-import { listAgents } from '../api/agent'
+import { listAgents, deleteAgent } from '../api/agent'
+import { ApiError } from '../api/client'
 import type { AgentSummaryVO, AgentStatus } from '../api/types'
 
 type CardStatus = 'draft' | 'published' | 'debugging' | 'error' | 'info'
@@ -115,6 +116,26 @@ const AgentListPage: React.FC = () => {
 
   const handleUseAgent = (id: string) => navigate(`/chat?agentId=${id}`)
   const handleEditAgent = (id: string) => navigate(`/agents/edit/${id}`)
+  const handleDeleteAgent = async (id: string, name: string) => {
+    if (!window.confirm(`确定要删除 "${name}" 吗？`)) return
+    try {
+      await deleteAgent(id)
+      fetchAgents()
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) {
+        if (window.confirm('该智能体被其他资源引用，是否强制删除？')) {
+          try {
+            await deleteAgent(id, true)
+            fetchAgents()
+          } catch (e2) {
+            alert(e2 instanceof Error ? e2.message : '删除失败')
+          }
+        }
+      } else {
+        alert(e instanceof Error ? e.message : '删除失败')
+      }
+    }
+  }
   const handleCreateAgent = () => navigate('/agents/create')
 
   const totalPages = Math.ceil(total / pageSize)
@@ -272,6 +293,7 @@ const AgentListPage: React.FC = () => {
                   updatedAt={timeAgo(agent.updatedAt)}
                   onUse={() => handleUseAgent(agent.id)}
                   onEdit={() => handleEditAgent(agent.id)}
+                  onDelete={() => handleDeleteAgent(agent.id, agent.name)}
                 />
               ))}
             </div>

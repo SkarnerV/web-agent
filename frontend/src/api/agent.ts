@@ -26,8 +26,8 @@ export function updateAgent(id: string, data: AgentUpdateRequest) {
   return put<AgentDetailVO>(`/agents/${id}`, data)
 }
 
-export function deleteAgent(id: string) {
-  return del(`/agents/${id}`)
+export function deleteAgent(id: string, force = false) {
+  return del(`/agents/${id}`, { force })
 }
 
 export function duplicateAgent(id: string) {

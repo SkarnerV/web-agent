@@ -31,6 +31,7 @@ export interface AssetCardProps {
   updatedAt?: string
   onUse?: () => void
   onEdit?: () => void
+  onDelete?: () => void
 }
 
 const statusLabel: Record<string, string> = {
@@ -53,6 +54,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
   updatedAt = '2d 前',
   onUse,
   onEdit,
+  onDelete,
 }) => {
   const config = iconType ? iconTypeConfig[iconType] : null
   const resolvedBg = config?.bg ?? iconBg ?? 'bg-brand-50'
@@ -100,6 +102,14 @@ export const AssetCard: React.FC<AssetCardProps> = ({
       <div className="flex flex-wrap gap-2">
         <Button variant="primary" onClick={onUse}>使用</Button>
         <Button variant="secondary" onClick={onEdit}>编辑</Button>
+        {onDelete && (
+          <button
+            onClick={onDelete}
+            className="px-3 py-1.5 rounded-md text-[13px] font-medium text-error-500 hover:bg-error-50 transition-colors"
+          >
+            删除
+          </button>
+        )}
       </div>
     </div>
   )
