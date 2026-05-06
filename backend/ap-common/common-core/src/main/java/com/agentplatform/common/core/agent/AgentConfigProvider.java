@@ -21,6 +21,11 @@ public interface AgentConfigProvider {
     Integer getMaxSteps(UUID agentId);
 
     /**
+     * @return the configured system prompt for the agent, or null if not set
+     */
+    String getSystemPrompt(UUID agentId);
+
+    /**
      * Returns the tool binding configuration for the given agent.
      * Map key is tool_name, value contains at least: source_type, source_id.
      */

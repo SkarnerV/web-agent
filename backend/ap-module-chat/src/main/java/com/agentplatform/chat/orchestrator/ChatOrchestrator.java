@@ -342,8 +342,13 @@ public class ChatOrchestrator {
     private List<LlmMessage> buildContext(ChatSessionEntity session) {
         List<LlmMessage> context = new ArrayList<>();
 
-        // TODO: Load system_prompt from AgentService.getAgentConfig(agent_id)
-        context.add(LlmMessage.system("You are a helpful AI assistant."));
+        String systemPrompt = agentConfigProvider
+                .map(p -> p.getSystemPrompt(session.getCurrentAgentId()))
+                .orElse(null);
+        context.add(LlmMessage.system(
+                systemPrompt != null && !systemPrompt.isBlank()
+                        ? systemPrompt
+                        : "You are a helpful AI assistant."));
 
         // Load message history, respecting separator boundaries
         List<ChatMessageEntity> history = loadRelevantHistory(session.getId());

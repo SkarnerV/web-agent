@@ -35,6 +35,12 @@ public class AgentConfigProviderImpl implements AgentConfigProvider {
     }
 
     @Override
+    public String getSystemPrompt(UUID agentId) {
+        AgentEntity agent = agentMapper.selectById(agentId);
+        return agent != null ? agent.getSystemPrompt() : null;
+    }
+
+    @Override
     public Map<String, Map<String, Object>> getToolBindings(UUID agentId) {
         List<AgentToolBindingEntity> bindings = toolBindingMapper.selectList(
                 new LambdaQueryWrapper<AgentToolBindingEntity>()

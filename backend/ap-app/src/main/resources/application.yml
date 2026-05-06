@@ -57,6 +57,9 @@ mybatis-plus:
   type-enums-package: com.agentplatform.common.core.enums
   type-handlers-package: com.agentplatform.common.mybatis.handler
 
+agent-platform:
+  builtin-model-key: ${BUILTIN_MODEL_API_KEY:}
+
 logging:
   pattern:
     level: "%5p [%X{requestId:-}]"
