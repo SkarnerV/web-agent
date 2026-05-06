@@ -3,6 +3,7 @@ package com.agentplatform.agent.service;
 import com.agentplatform.agent.dto.CustomModelCreateRequest;
 import com.agentplatform.agent.dto.CustomModelUpdateRequest;
 import com.agentplatform.agent.dto.CustomModelVO;
+import com.agentplatform.agent.mapper.AgentMapper;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
 import com.agentplatform.common.core.model.ModelInfo;
@@ -31,6 +32,7 @@ class CustomModelTest {
 
     @Mock private ModelRegistry modelRegistry;
     @Mock private CredentialStore credentialStore;
+    @Mock private AgentMapper agentMapper;
     @Mock private RestClient.Builder restClientBuilder;
     @Mock private RestClient restClient;
     @Mock private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
@@ -45,7 +47,7 @@ class CustomModelTest {
     @BeforeEach
     void setUp() {
         when(restClientBuilder.build()).thenReturn(restClient);
-        modelService = new ModelService(modelRegistry, credentialStore, restClientBuilder);
+        modelService = new ModelService(modelRegistry, credentialStore, agentMapper, restClientBuilder);
     }
 
     @Nested
@@ -70,18 +72,18 @@ class CustomModelTest {
             when(credentialStore.encrypt("sk-valid-key")).thenReturn("encrypted-sk-valid-key");
 
             ModelInfo created = customModelInfo(MODEL_ID.toString(), "My GPT-4o",
-                    "https://api.openai.com/v1/models", "***valid-key", "ok");
+                    "https://api.openai.com/v1", "***valid-key", "connected");
             when(modelRegistry.createCustomModel(
-                    eq("My GPT-4o"), eq("https://api.openai.com/v1/models"),
-                    any(byte[].class), eq("ok"), eq(USER_A)))
+                    eq("My GPT-4o"), eq("https://api.openai.com/v1"),
+                    any(byte[].class), eq("connected"), eq(USER_A)))
                     .thenReturn(created);
 
             CustomModelVO result = modelService.createCustomModel(request, USER_A);
 
             assertThat(result.getName()).isEqualTo("My GPT-4o");
-            assertThat(result.getApiUrl()).isEqualTo("https://api.openai.com/v1/models");
+            assertThat(result.getApiUrl()).isEqualTo("https://api.openai.com/v1");
             assertThat(result.getApiKeyMasked()).isEqualTo("***valid-key");
-            assertThat(result.getConnectionStatus()).isEqualTo("ok");
+            assertThat(result.getConnectionStatus()).isEqualTo("connected");
 
             verify(credentialStore).encrypt("sk-valid-key");
         }
@@ -95,7 +97,7 @@ class CustomModelTest {
             request.setApiKey("sk-bad-key");
 
             when(restClient.get()).thenReturn(requestHeadersUriSpec);
-            when(requestHeadersUriSpec.uri("https://invalid.example.com/api")).thenReturn(requestHeadersSpec);
+            when(requestHeadersUriSpec.uri("https://invalid.example.com/api/models")).thenReturn(requestHeadersSpec);
             when(requestHeadersSpec.header(anyString(), anyString())).thenReturn(requestHeadersSpec);
             when(requestHeadersSpec.retrieve()).thenReturn(responseSpec);
             when(responseSpec.body(String.class)).thenThrow(new RuntimeException("Connection refused"));
@@ -122,6 +124,11 @@ class CustomModelTest {
             request.setApiUrl("https://api.new.com/v1/models");
             request.setApiKey("sk-new-key");
 
+            ModelInfo existing = customModelInfo(MODEL_ID.toString(), "Old Model",
+                    "https://api.old.com/v1", "***old", "connected");
+            when(modelRegistry.getById(MODEL_ID.toString()))
+                    .thenReturn(java.util.Optional.of(existing));
+
             when(restClient.get()).thenReturn(requestHeadersUriSpec);
             when(requestHeadersUriSpec.uri("https://api.new.com/v1/models")).thenReturn(requestHeadersSpec);
             when(requestHeadersSpec.header(anyString(), anyString())).thenReturn(requestHeadersSpec);
@@ -131,15 +138,15 @@ class CustomModelTest {
             when(credentialStore.encrypt("sk-new-key")).thenReturn("encrypted-sk-new-key");
 
             ModelInfo updated = customModelInfo(MODEL_ID.toString(), "Updated Model",
-                    "https://api.new.com/v1/models", "***new-key", "ok");
+                    "https://api.new.com/v1", "***new-key", "connected");
             when(modelRegistry.updateCustomModel(eq(MODEL_ID), eq("Updated Model"),
-                    eq("https://api.new.com/v1/models"), any(byte[].class), eq("ok"), eq(USER_A)))
+                    eq("https://api.new.com/v1"), any(byte[].class), eq("connected"), eq(USER_A)))
                     .thenReturn(updated);
 
             CustomModelVO result = modelService.updateCustomModel(MODEL_ID, request, USER_A);
 
             assertThat(result.getName()).isEqualTo("Updated Model");
-            assertThat(result.getConnectionStatus()).isEqualTo("ok");
+            assertThat(result.getConnectionStatus()).isEqualTo("connected");
             verify(credentialStore).encrypt("sk-new-key");
         }
 
@@ -151,7 +158,7 @@ class CustomModelTest {
 
             // Should fall back to the existing model's URL
             ModelInfo existing = customModelInfo(MODEL_ID.toString(), "My Model",
-                    "https://api.existing.com/v1/models", "***old", "ok");
+                    "https://api.existing.com/v1/models", "***old", "connected");
             when(modelRegistry.getById(MODEL_ID.toString()))
                     .thenReturn(java.util.Optional.of(existing));
 
@@ -164,13 +171,13 @@ class CustomModelTest {
             when(credentialStore.encrypt("sk-changed-key")).thenReturn("encrypted-changed");
 
             ModelInfo updated = customModelInfo(MODEL_ID.toString(), "My Model",
-                    "https://api.existing.com/v1/models", "***changed", "ok");
+                    "https://api.existing.com/v1", "***changed", "connected");
             when(modelRegistry.updateCustomModel(eq(MODEL_ID), isNull(), isNull(),
-                    any(byte[].class), eq("ok"), eq(USER_A))).thenReturn(updated);
+                    any(byte[].class), eq("connected"), eq(USER_A))).thenReturn(updated);
 
             CustomModelVO result = modelService.updateCustomModel(MODEL_ID, request, USER_A);
 
-            assertThat(result.getConnectionStatus()).isEqualTo("ok");
+            assertThat(result.getConnectionStatus()).isEqualTo("connected");
             verify(modelRegistry).getById(MODEL_ID.toString());
             verify(credentialStore).encrypt("sk-changed-key");
         }
@@ -181,8 +188,13 @@ class CustomModelTest {
             CustomModelUpdateRequest request = new CustomModelUpdateRequest();
             request.setName("Renamed Model");
 
+            ModelInfo existing = customModelInfo(MODEL_ID.toString(), "Old Model",
+                    "https://api.old.com/v1", "***old-key", "connected");
+            when(modelRegistry.getById(MODEL_ID.toString()))
+                    .thenReturn(java.util.Optional.of(existing));
+
             ModelInfo updated = customModelInfo(MODEL_ID.toString(), "Renamed Model",
-                    "https://api.old.com/v1/models", "***old-key", "ok");
+                    "https://api.old.com/v1/models", "***old-key", "connected");
             when(modelRegistry.updateCustomModel(eq(MODEL_ID), eq("Renamed Model"),
                     isNull(), isNull(), isNull(), eq(USER_A)))
                     .thenReturn(updated);

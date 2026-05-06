@@ -456,8 +456,14 @@ export interface CustomModelVO {
   apiKeyMasked?: string
   connectionStatus?: string
   lastError?: string
+  agentCount: number
   createdAt: string
   updatedAt: string
+}
+
+export interface ModelAffectedAgents {
+  count: number
+  agents: string[]
 }
 
 export type ModelSource = 'BUILTIN' | 'CUSTOM'

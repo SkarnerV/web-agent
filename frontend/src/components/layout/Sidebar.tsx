@@ -6,6 +6,7 @@ import {
   Wand, 
   Plug, 
   BookOpen,
+  Cpu,
   Store,
   Package,
   Blocks,
@@ -144,6 +145,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
         active={activePath.startsWith('/knowledge')}
         collapsed={collapsed}
         onClick={() => handleNavClick('/knowledge')}
+      />
+      <NavItem 
+        icon={<Cpu className="w-[18px] h-[18px]" />}
+        label="模型管理"
+        active={activePath === '/models'}
+        collapsed={collapsed}
+        onClick={() => handleNavClick('/models')}
       />
 
       {/* Market Section */}

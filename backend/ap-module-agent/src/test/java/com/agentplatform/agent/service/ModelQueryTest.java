@@ -2,6 +2,7 @@ package com.agentplatform.agent.service;
 
 import com.agentplatform.agent.dto.BuiltinModelVO;
 import com.agentplatform.agent.dto.CustomModelVO;
+import com.agentplatform.agent.mapper.AgentMapper;
 import com.agentplatform.common.core.model.ModelInfo;
 import com.agentplatform.common.core.model.ModelRegistry;
 import com.agentplatform.common.core.security.CredentialStore;
@@ -18,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,6 +27,7 @@ class ModelQueryTest {
 
     @Mock private ModelRegistry modelRegistry;
     @Mock private CredentialStore credentialStore;
+    @Mock private AgentMapper agentMapper;
     @Mock private RestClient.Builder restClientBuilder;
 
     private ModelService modelService;
@@ -33,7 +36,8 @@ class ModelQueryTest {
 
     @BeforeEach
     void setUp() {
-        modelService = new ModelService(modelRegistry, credentialStore, restClientBuilder);
+        when(restClientBuilder.build()).thenReturn(null);
+        modelService = new ModelService(modelRegistry, credentialStore, agentMapper, restClientBuilder);
     }
 
     @Nested
@@ -126,6 +130,7 @@ class ModelQueryTest {
             ModelInfo custom2 = customModel(id2.toString(), "My Claude", "https://api.other.com", "***xyz", "failed");
 
             when(modelRegistry.getCustomModels(USER_A)).thenReturn(List.of(custom1, custom2));
+            when(agentMapper.selectCount(any())).thenReturn(0L);
 
             List<CustomModelVO> result = modelService.listCustomModels(USER_A);
 

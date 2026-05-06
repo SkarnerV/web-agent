@@ -90,5 +90,9 @@
       "Bash(curl -s -X POST http://localhost:8931/mcp -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' -H 'mcp-session-id: 2ada9da6-c243-4697-92e2-12e6f5b0f4b3' -d '{ *)",
       "Bash(npm ls *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "playwright"
+  ],
+  "enableAllProjectMcpServers": true
 }

@@ -7,15 +7,29 @@ class ApiError extends Error {
   body: unknown
 
   constructor(status: number, body: unknown) {
-    const msg =
-      typeof body === 'object' && body !== null && 'message' in body
-        ? String((body as Record<string, unknown>).message)
-        : `Request failed with status ${status}`
+    const msg = extractErrorMessage(body) ?? `Request failed with status ${status}`
     super(msg)
     this.name = 'ApiError'
     this.status = status
     this.body = body
   }
+}
+
+function extractErrorMessage(body: unknown): string | null {
+  if (typeof body !== 'object' || body === null) return null
+  const obj = body as Record<string, unknown>
+  if (typeof obj.message === 'string') return obj.message
+  if (typeof obj.error === 'object' && obj.error !== null) {
+    const err = obj.error as Record<string, unknown>
+    if (typeof err.message === 'string') {
+      const details = err.details as Record<string, unknown> | undefined
+      if (details && typeof details.reason === 'string' && details.reason !== err.message) {
+        return `${err.message}: ${details.reason}`
+      }
+      return err.message
+    }
+  }
+  return null
 }
 
 async function request<T>(

@@ -20,6 +20,8 @@ public class CustomModelVO {
 
     private String lastError;
 
+    private int agentCount;
+
     private OffsetDateTime createdAt;
 
     private OffsetDateTime updatedAt;

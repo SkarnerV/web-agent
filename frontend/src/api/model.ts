@@ -5,6 +5,7 @@ import type {
   CustomModelCreateRequest,
   CustomModelUpdateRequest,
   ModelInfo,
+  ModelAffectedAgents,
 } from './types'
 
 export function listBuiltinModels() {
@@ -29,4 +30,8 @@ export function updateCustomModel(id: string, data: CustomModelUpdateRequest) {
 
 export function deleteCustomModel(id: string) {
   return del(`/models/${id}`)
+}
+
+export function getModelAgents(id: string) {
+  return get<ModelAffectedAgents>(`/models/${id}/agents`)
 }

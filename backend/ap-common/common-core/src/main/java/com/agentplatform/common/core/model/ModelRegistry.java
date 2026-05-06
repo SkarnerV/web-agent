@@ -64,6 +64,12 @@ public interface ModelRegistry {
                                 byte[] apiKeyEnc, String connectionStatus, UUID userId);
 
     /**
+     * Returns the raw encrypted API key bytes for a custom model.
+     * Used when re-verifying connectivity without the user re-submitting the key.
+     */
+    String getRawApiKeyEnc(UUID modelId);
+
+    /**
      * MVP placeholder: returns a ChatClient-like wrapper map.
      * Full Spring AI ChatClient integration deferred to post-MVP.
      */

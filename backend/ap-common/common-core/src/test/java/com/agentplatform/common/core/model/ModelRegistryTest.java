@@ -291,6 +291,15 @@ class ModelRegistryTest {
             return m;
         }
 
+        @Override
+        public String getRawApiKeyEnc(UUID modelId) {
+            ModelInfo m = models.get(modelId.toString());
+            if (m == null || m.getSource() != ModelInfo.Source.CUSTOM) {
+                throw new RuntimeException("not found");
+            }
+            return "encrypted-key";
+        }
+
         String addCustomModel(UUID userId, String name, String apiUrl) {
             String id = UUID.randomUUID().toString();
             ModelInfo info = new ModelInfo();

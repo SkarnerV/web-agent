@@ -16,6 +16,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -69,5 +70,14 @@ public class ModelController {
                                      @CurrentUser UserPrincipal user) {
         modelService.deleteCustomModel(id, user.id());
         return ApiResponse.ok(null, RequestIdContext.current());
+    }
+
+    @GetMapping("/{id}/agents")
+    public ApiResponse<Map<String, Object>> listAffectedAgents(@PathVariable UUID id) {
+        List<String> agentNames = modelService.listAgentNamesByModelId(id.toString());
+        Map<String, Object> result = Map.of(
+                "count", agentNames.size(),
+                "agents", agentNames);
+        return ApiResponse.ok(result, RequestIdContext.current());
     }
 }

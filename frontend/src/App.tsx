@@ -21,6 +21,7 @@ import MCPAddPage from './pages/MCPAddPage'
 import MCPMarketPage from './pages/MCPMarketPage'
 import KnowledgeBasePage from './pages/KnowledgeBasePage'
 import KBDocumentsPage from './pages/KBDocumentsPage'
+import ModelListPage from './pages/ModelListPage'
 import CreationWizardPage from './pages/CreationWizardPage'
 import UserPermissionPage from './pages/UserPermissionPage'
 
@@ -39,6 +40,7 @@ function App() {
         <Route path="/skills" element={<SkillListPage />} />
         <Route path="/mcp" element={<MCPListPage />} />
         <Route path="/knowledge" element={<KnowledgeBasePage />} />
+        <Route path="/models" element={<ModelListPage />} />
         
         {/* Level 1 - Markets */}
         <Route path="/market/agents" element={<AgentMarketPage />} />

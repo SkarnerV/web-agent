@@ -180,6 +180,15 @@ public class ModelRegistryImpl implements ModelRegistry {
     }
 
     @Override
+    public String getRawApiKeyEnc(UUID modelId) {
+        CustomModelEntity entity = customModelMapper.selectById(modelId);
+        if (entity == null || entity.getApiKeyEnc() == null) {
+            throw new BizException(ErrorCode.ASSET_NOT_FOUND, "Custom model or key not found");
+        }
+        return new String(entity.getApiKeyEnc());
+    }
+
+    @Override
     public Map<String, Object> buildChatClient(ModelInfo model) {
         // MVP placeholder: returns a descriptive map instead of Spring AI ChatClient.
         // Full Spring AI integration (task 4.2) will replace this.
