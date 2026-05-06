@@ -83,9 +83,17 @@ const SessionItem: React.FC<{
   onClick: () => void
   onDelete: () => void
 }> = ({ title, agent, time, lastMessage, active, onClick, onDelete }) => (
-  <button
+  <div
+    role="button"
+    tabIndex={0}
     onClick={onClick}
-    className={`w-full p-2.5 rounded-lg text-left transition-colors group relative ${
+    onKeyDown={(e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onClick()
+      }
+    }}
+    className={`w-full p-2.5 rounded-lg text-left transition-colors group relative cursor-pointer ${
       active ? 'bg-brand-50' : 'hover:bg-gray-50'
     }`}
   >
@@ -101,11 +109,12 @@ const SessionItem: React.FC<{
     </div>
     <button
       onClick={(e) => { e.stopPropagation(); onDelete() }}
+      aria-label="删除对话"
       className="absolute top-2 right-2 w-5 h-5 rounded flex items-center justify-center text-text-tertiary hover:text-error-500 hover:bg-error-50 opacity-0 group-hover:opacity-100 transition-all"
     >
       <span className="text-[10px]">✕</span>
     </button>
-  </button>
+  </div>
 )
 
 const ToolCallCard: React.FC<{ tc: ToolCallDetail }> = ({ tc }) => {
@@ -327,6 +336,7 @@ const ChatPage: React.FC = () => {
   // Input
   const [messageInput, setMessageInput] = useState('')
   const [sending, setSending] = useState(false)
+  const [creatingSession, setCreatingSession] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Agent dropdown
@@ -403,8 +413,39 @@ const ChatPage: React.FC = () => {
   // ── Create new session ──
 
   const handleNewChat = async () => {
-    setActiveSessionId('')
-    setMessages([])
+    if (creatingSession) return
+
+    setCreatingSession(true)
+    setShowAgentDropdown(false)
+    try {
+      let availableAgents = agents
+      if (availableAgents.length === 0) {
+        const result = await listAgents({ page_size: 50 })
+        availableAgents = result.data
+        setAgents(result.data)
+      }
+
+      const currentSessionAgentId = sessions.find((s) => s.id === activeSessionId)?.currentAgentId
+      const agent = availableAgents.find((a) => a.id === (currentSessionAgentId ?? agentIdFromUrl)) ?? availableAgents[0]
+      if (!agent) {
+        alert('请先创建一个智能体')
+        return
+      }
+
+      const session = await createSession({ agentId: agent.id })
+      setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)])
+      setActiveSessionId(session.id)
+      setMessages([])
+      setLastMessageMap((prev) => {
+        const next = { ...prev }
+        delete next[session.id]
+        return next
+      })
+    } catch {
+      alert('创建会话失败')
+    } finally {
+      setCreatingSession(false)
+    }
   }
 
   const handleDeleteSession = async (sessionId: string) => {
@@ -679,9 +720,10 @@ const ChatPage: React.FC = () => {
         <div className="w-[260px] bg-white border-r border-border-subtle p-3 flex flex-col gap-3 overflow-y-auto">
           <button
             onClick={handleNewChat}
+            disabled={creatingSession}
             className="flex items-center justify-center gap-2 w-full py-2.5 bg-brand-500 text-white rounded-lg font-semibold text-[13px] hover:bg-brand-600 transition-colors"
           >
-            <Plus className="w-4 h-4" />
+            {creatingSession ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             <span>新建对话</span>
           </button>
 
