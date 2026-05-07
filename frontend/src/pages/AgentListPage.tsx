@@ -11,9 +11,9 @@ import type { AgentSummaryVO, AgentStatus } from '../api/types'
 type CardStatus = 'draft' | 'published' | 'debugging' | 'error' | 'info'
 
 const statusLabel = (s: AgentStatus): CardStatus => {
-  if (s === 'DRAFT') return 'draft'
-  if (s === 'PUBLISHED') return 'published'
-  if (s === 'ARCHIVED') return 'info'
+  if (s === 'draft') return 'draft'
+  if (s === 'published') return 'published'
+  if (s === 'archived') return 'info'
   return 'info'
 }
 
@@ -62,11 +62,11 @@ const AgentListPage: React.FC = () => {
         page_size: pageSize,
       }
       if (activeTab === 'published') {
-        params.status = 'PUBLISHED'
+        params.status = 'published'
       } else if (activeTab === 'draft') {
-        params.status = 'DRAFT'
+        params.status = 'draft'
       } else if (activeTab === 'archived') {
-        params.status = 'ARCHIVED'
+        params.status = 'archived'
       } else if (filterStatuses.size === 1) {
         params.status = [...filterStatuses][0]
       }
@@ -88,9 +88,9 @@ const AgentListPage: React.FC = () => {
       if (activeTab === 'all' && currentPage === 1 && filterStatuses.size === 0) {
         try {
           const [draftRes, pubRes, archRes] = await Promise.all([
-            listAgents({ status: 'DRAFT', page: 1, page_size: 1 }),
-            listAgents({ status: 'PUBLISHED', page: 1, page_size: 1 }),
-            listAgents({ status: 'ARCHIVED', page: 1, page_size: 1 }),
+            listAgents({ status: 'draft', page: 1, page_size: 1 }),
+            listAgents({ status: 'published', page: 1, page_size: 1 }),
+            listAgents({ status: 'archived', page: 1, page_size: 1 }),
           ])
           setDraftCount(draftRes.total)
           setPublishedCount(pubRes.total)
@@ -220,9 +220,9 @@ const AgentListPage: React.FC = () => {
             {showFilterDropdown && (
               <div className="absolute top-full right-0 mt-1 w-[160px] bg-white border border-border-subtle rounded-md shadow-lg z-10 py-1">
                 {([
-                  { label: '草稿', value: 'DRAFT' as AgentStatus },
-                  { label: '已发布', value: 'PUBLISHED' as AgentStatus },
-                  { label: '已归档', value: 'ARCHIVED' as AgentStatus },
+                  { label: '草稿', value: 'draft' as AgentStatus },
+                  { label: '已发布', value: 'published' as AgentStatus },
+                  { label: '已归档', value: 'archived' as AgentStatus },
                 ]).map((opt) => (
                   <label
                     key={opt.value}

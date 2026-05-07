@@ -9,6 +9,12 @@ import { publishAsset } from '../api/market'
 import { listAllModels } from '../api/model'
 import { ApiError } from '../api/client'
 import type { ModelInfo } from '../api/types'
+import {
+  clearAgentWizardDraft,
+  readAgentWizardDraft,
+  saveAgentWizardDraft,
+  toAgentCreateRequest,
+} from './agentWizardDraft'
 
 type StepType = 1 | 2 | 3 | 4
 
@@ -75,7 +81,7 @@ const PublishDialog: React.FC<{
   onClose: () => void
   onConfirm: (data: { visibility: string; version: string; releaseNotes: string }) => void
 }> = ({ open, publishing, onClose, onConfirm }) => {
-  const [visibility, setVisibility] = useState('PUBLIC')
+  const [visibility, setVisibility] = useState('public')
   const [version, setVersion] = useState('v1.0.0')
   const [releaseNotes, setReleaseNotes] = useState('')
 
@@ -95,10 +101,10 @@ const PublishDialog: React.FC<{
           <label className="text-[13px] font-medium text-text-primary">可见性</label>
           <div className="flex flex-col gap-1.5">
             {([
-              { value: 'PUBLIC', label: '公开' },
-              { value: 'WORKSPACE_EDIT', label: '同组可编辑' },
-              { value: 'WORKSPACE_READ', label: '同组只读' },
-              { value: 'PRIVATE', label: '私有' },
+              { value: 'public', label: '公开' },
+              { value: 'group_edit', label: '同组可编辑' },
+              { value: 'group_read', label: '同组只读' },
+              { value: 'private', label: '私有' },
             ] as const).map((opt) => (
               <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -150,14 +156,15 @@ const PublishDialog: React.FC<{
 
 const AgentCreatePage: React.FC = () => {
   const navigate = useNavigate()
+  const initialDraft = readAgentWizardDraft()
   const [models, setModels] = useState<ModelInfo[]>([])
   const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    icon: 'bot',
-    model: '',
-    maxSteps: 10,
-    prompt: '',
+    name: initialDraft.name,
+    description: initialDraft.description,
+    icon: initialDraft.icon,
+    model: initialDraft.modelId,
+    maxSteps: initialDraft.maxSteps,
+    prompt: initialDraft.systemPrompt,
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -171,14 +178,25 @@ const AgentCreatePage: React.FC = () => {
         const enabled = all.filter((m) => m.enabled)
         setModels(enabled)
         const defaultModel = enabled.find((m) => m.isDefault) ?? enabled[0]
-        if (defaultModel) {
+        if (defaultModel && !formData.model) {
           setFormData((prev) => ({ ...prev, model: defaultModel.id }))
         }
       } catch {
         // keep empty list
       }
     })()
-  }, [])
+  }, [formData.model])
+
+  useEffect(() => {
+    saveAgentWizardDraft({
+      name: formData.name,
+      description: formData.description,
+      icon: formData.icon,
+      modelId: formData.model,
+      maxSteps: formData.maxSteps,
+      systemPrompt: formData.prompt,
+    })
+  }, [formData])
 
   const handleBack = () => navigate('/agents')
 
@@ -188,13 +206,16 @@ const AgentCreatePage: React.FC = () => {
     setError(null)
     try {
       await createAgent({
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        avatar: formData.icon,
-        modelId: formData.model || undefined,
-        systemPrompt: formData.prompt.trim() || undefined,
-        maxSteps: formData.maxSteps,
+        ...toAgentCreateRequest(saveAgentWizardDraft({
+          name: formData.name,
+          description: formData.description,
+          icon: formData.icon,
+          modelId: formData.model,
+          maxSteps: formData.maxSteps,
+          systemPrompt: formData.prompt,
+        })),
       })
+      clearAgentWizardDraft()
       navigate('/agents')
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '创建失败，请重试')
@@ -209,9 +230,14 @@ const AgentCreatePage: React.FC = () => {
     setError(null)
     try {
       const agent = await createAgent({
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        avatar: formData.icon,
+        ...toAgentCreateRequest(saveAgentWizardDraft({
+          name: formData.name,
+          description: formData.description,
+          icon: formData.icon,
+          modelId: formData.model,
+          maxSteps: formData.maxSteps,
+          systemPrompt: formData.prompt,
+        })),
       })
       await publishAsset({
         assetType: 'AGENT',
@@ -220,6 +246,7 @@ const AgentCreatePage: React.FC = () => {
         version: data.version,
         releaseNotes: data.releaseNotes || undefined,
       })
+      clearAgentWizardDraft()
       navigate('/agents', { state: { published: true } })
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '发布失败，请重试')
@@ -230,6 +257,14 @@ const AgentCreatePage: React.FC = () => {
   }
 
   const handleNext = () => {
+    saveAgentWizardDraft({
+      name: formData.name,
+      description: formData.description,
+      icon: formData.icon,
+      modelId: formData.model,
+      maxSteps: formData.maxSteps,
+      systemPrompt: formData.prompt,
+    })
     navigate('/agents/tools')
   }
 

@@ -184,7 +184,7 @@ const DashboardPage: React.FC = () => {
                     name={agent.name}
                     description={agent.description || ''}
                     iconType="agent"
-                    status={agent.status === 'PUBLISHED' ? 'published' : agent.status === 'DRAFT' ? 'draft' : undefined}
+                    status={agent.status === 'published' ? 'published' : agent.status === 'draft' ? 'draft' : undefined}
                     toolCount={0}
                     collabCount={0}
                     updatedAt={agent.updatedAt ? new Date(agent.updatedAt).toLocaleDateString() : ''}

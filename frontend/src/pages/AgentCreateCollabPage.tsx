@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Check, Plus, X, Bot } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
+import { readAgentWizardDraft, saveAgentWizardDraft } from './agentWizardDraft'
 
 type StepType = 1 | 2 | 3 | 4
 type CollabMode = 'sequential' | 'parallel' | 'conditional'
@@ -87,8 +88,11 @@ const errorStrategies = [
 
 const AgentCreateCollabPage: React.FC = () => {
   const navigate = useNavigate()
-  const [collabMode, setCollabMode] = useState<CollabMode>('sequential')
-  const [errorStrategy, setErrorStrategy] = useState('retry')
+  const initialDraft = readAgentWizardDraft()
+  const [collabMode, setCollabMode] = useState<CollabMode>(
+    (initialDraft.collabMode as CollabMode) || 'sequential',
+  )
+  const [errorStrategy, setErrorStrategy] = useState(initialDraft.errorStrategy || 'retry')
   const [subAgents] = useState<SubAgent[]>([
     { id: '1', name: '数据分析助手', role: '分析销售数据并生成报告' },
     { id: '2', name: '图表生成器', role: '将数据转换为可视化图表' },
@@ -106,6 +110,10 @@ const AgentCreateCollabPage: React.FC = () => {
   const handleRemoveMember = (memberId: string) => {
     setMembers(members.filter((m) => m.id !== memberId))
   }
+
+  React.useEffect(() => {
+    saveAgentWizardDraft({ collabMode, errorStrategy })
+  }, [collabMode, errorStrategy])
 
   const handleAddMember = () => {
     const newMember: Member = {

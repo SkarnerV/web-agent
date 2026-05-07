@@ -16,8 +16,8 @@ export interface PageResult<T> {
 
 // ── Agent types ──
 
-export type AgentStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-export type AgentVisibility = 'PRIVATE' | 'WORKSPACE'
+export type AgentStatus = 'draft' | 'published' | 'archived'
+export type AgentVisibility = 'private' | 'public' | 'group_edit' | 'group_read'
 
 export interface AgentSummaryVO {
   id: string
@@ -55,7 +55,7 @@ export interface AgentDetailVO extends AgentSummaryVO {
 
 export interface ToolBindingRequest {
   sourceType: string
-  sourceId: string
+  sourceId?: string
   toolName: string
   enabled?: boolean
 }

@@ -10,6 +10,12 @@ import { listSkills } from '../api/skill'
 import { listMcps } from '../api/mcp'
 import { listKnowledgeBases } from '../api/knowledge'
 import type { SkillSummaryVO, McpSummaryVO, KnowledgeBaseSummaryVO } from '../api/types'
+import {
+  readAgentWizardDraft,
+  saveAgentWizardDraft,
+  type AgentWizardToolDraft,
+  type AgentWizardToolType,
+} from './agentWizardDraft'
 
 type StepType = 1 | 2 | 3 | 4
 
@@ -47,6 +53,25 @@ interface ToolItem {
   size?: string
   indexedAt?: string
 }
+
+const iconForToolType = (type: AgentWizardToolType, id?: string) => {
+  if (type === 'skill') return Wand
+  if (type === 'mcp') return Plug
+  if (type === 'kb') return BookOpen
+  return builtinTools.find((tool) => tool.id === id)?.icon ?? Wrench
+}
+
+const fromDraftTool = (tool: AgentWizardToolDraft): ToolItem => ({
+  ...tool,
+  icon: iconForToolType(tool.type, tool.id),
+})
+
+const toDraftTool = (tool: ToolItem): AgentWizardToolDraft => ({
+  id: tool.id,
+  name: tool.name,
+  description: tool.description,
+  type: tool.type,
+})
 
 const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
   const steps = [
@@ -307,8 +332,14 @@ const AddModal: React.FC<{
 
 const AgentCreateToolsPage: React.FC = () => {
   const navigate = useNavigate()
-  const [addedTools, setAddedTools] = useState<ToolItem[]>([])
+  const [addedTools, setAddedTools] = useState<ToolItem[]>(() =>
+    readAgentWizardDraft().tools.map(fromDraftTool),
+  )
   const [showModal, setShowModal] = useState(false)
+
+  useEffect(() => {
+    saveAgentWizardDraft({ tools: addedTools.map(toDraftTool) })
+  }, [addedTools])
 
   const handleAdd = (item: ToolItem) => {
     setAddedTools((prev) => [...prev, item])

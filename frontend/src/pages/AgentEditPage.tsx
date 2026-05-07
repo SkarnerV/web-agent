@@ -75,7 +75,7 @@ const PublishDialog: React.FC<{
   onClose: () => void
   onConfirm: (data: { visibility: string; version: string; releaseNotes: string }) => void
 }> = ({ open, publishing, onClose, onConfirm }) => {
-  const [visibility, setVisibility] = useState('PUBLIC')
+  const [visibility, setVisibility] = useState('public')
   const [version, setVersion] = useState('v1.0.0')
   const [releaseNotes, setReleaseNotes] = useState('')
 
@@ -95,10 +95,10 @@ const PublishDialog: React.FC<{
           <label className="text-[13px] font-medium text-text-primary">可见性</label>
           <div className="flex flex-col gap-1.5">
             {([
-              { value: 'PUBLIC', label: '公开' },
-              { value: 'WORKSPACE_EDIT', label: '同组可编辑' },
-              { value: 'WORKSPACE_READ', label: '同组只读' },
-              { value: 'PRIVATE', label: '私有' },
+              { value: 'public', label: '公开' },
+              { value: 'group_edit', label: '同组可编辑' },
+              { value: 'group_read', label: '同组只读' },
+              { value: 'private', label: '私有' },
             ] as const).map((opt) => (
               <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                 <input

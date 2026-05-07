@@ -138,7 +138,7 @@ const AgentDetailPage: React.FC = () => {
             <div className="flex items-center gap-2.5 text-xs text-text-tertiary">
               <span>发布于 {timeAgo(agent.createdAt)}</span>
               <span>·</span>
-              <span>状态: {agent.status === 'PUBLISHED' ? '已发布' : agent.status === 'DRAFT' ? '草稿' : '已归档'}</span>
+              <span>状态: {agent.status === 'published' ? '已发布' : agent.status === 'draft' ? '草稿' : '已归档'}</span>
             </div>
           </div>
 
@@ -252,7 +252,7 @@ const AgentDetailPage: React.FC = () => {
               <h3 className="text-sm font-semibold text-text-primary">标签</h3>
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary">
-                  {agent.status === 'PUBLISHED' ? '已发布' : agent.status === 'DRAFT' ? '草稿' : '已归档'}
+                  {agent.status === 'published' ? '已发布' : agent.status === 'draft' ? '草稿' : '已归档'}
                 </span>
                 <span className="px-2 py-1 bg-gray-100 rounded text-xs text-text-secondary">
                   最大步数: {agent.maxSteps}

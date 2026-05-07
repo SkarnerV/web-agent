@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronLeft, Check, Rocket, Globe, Lock } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
+import { createAgent } from '../api/agent'
+import { publishAsset } from '../api/market'
+import { ApiError } from '../api/client'
+import {
+  clearAgentWizardDraft,
+  readAgentWizardDraft,
+  saveAgentWizardDraft,
+  toAgentCreateRequest,
+} from './agentWizardDraft'
 
 type StepType = 1 | 2 | 3 | 4
 type PublishScopeType = 'public' | 'private'
@@ -121,22 +130,83 @@ const PublishScopeCard: React.FC<{
 
 const AgentCreatePublishPage: React.FC = () => {
   const navigate = useNavigate()
-  const [publishScope, setPublishScope] = useState<PublishScopeType>('public')
-  const [publishNotes, setPublishNotes] = useState('')
-  const [version, setVersion] = useState('1.0.0')
-  const [checklist] = useState<ChecklistItem[]>([
-    { id: '1', label: '基本信息已完整填写', done: true, status: 'success' },
-    { id: '2', label: '工具配置已保存', done: true, status: 'success' },
-    { id: '3', label: '协作模式已选定', done: false, status: 'warning' },
-  ])
+  const initialDraft = readAgentWizardDraft()
+  const [publishScope, setPublishScope] = useState<PublishScopeType>(initialDraft.visibility)
+  const [publishNotes, setPublishNotes] = useState(initialDraft.releaseNotes)
+  const [version, setVersion] = useState(initialDraft.version)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handlePublish = () => {
-    navigate('/agents')
+  const currentDraft = readAgentWizardDraft()
+  const hasName = currentDraft.name.trim().length > 0
+  const checklist: ChecklistItem[] = [
+    { id: '1', label: '基本信息已完整填写', done: hasName, status: hasName ? 'success' : 'warning' },
+    { id: '2', label: '工具配置已保存', done: true, status: 'success' },
+    {
+      id: '3',
+      label: '协作模式已选定',
+      done: Boolean(currentDraft.collabMode),
+      status: currentDraft.collabMode ? 'success' : 'warning',
+    },
+  ]
+
+  React.useEffect(() => {
+    saveAgentWizardDraft({
+      visibility: publishScope,
+      version,
+      releaseNotes: publishNotes,
+    })
+  }, [publishScope, version, publishNotes])
+
+  const createFromDraft = async () => {
+    const draft = saveAgentWizardDraft({
+      visibility: publishScope,
+      version,
+      releaseNotes: publishNotes,
+    })
+    if (!draft.name.trim()) {
+      throw new Error('请先填写智能体名称')
+    }
+    return createAgent(toAgentCreateRequest(draft))
+  }
+
+  const handleSaveDraft = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      await createFromDraft()
+      clearAgentWizardDraft()
+      navigate('/agents')
+    } catch (e) {
+      setError(e instanceof ApiError || e instanceof Error ? e.message : '保存失败，请重试')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handlePublish = async () => {
+    setSaving(true)
+    setError(null)
+    try {
+      const agent = await createFromDraft()
+      await publishAsset({
+        assetType: 'AGENT',
+        assetId: agent.id,
+        visibility: publishScope,
+        version: version.trim() || '1.0.0',
+        releaseNotes: publishNotes.trim() || undefined,
+      })
+      clearAgentWizardDraft()
+      navigate('/agents', { state: { published: true, agentId: agent.id } })
+    } catch (e) {
+      setError(e instanceof ApiError || e instanceof Error ? e.message : '发布失败，请重试')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }, { label: '创建' }]}>
-      {/* TopBar */}
       <div className="h-14 bg-white border-b border-border-subtle flex items-center gap-3 px-6">
         <button
           onClick={() => navigate('/agents/collab')}
@@ -147,22 +217,20 @@ const AgentCreatePublishPage: React.FC = () => {
         </button>
         <span className="text-[15px] font-semibold text-text-primary flex-1">创建智能体</span>
         <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={() => navigate('/agents/collab')}>
+          <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
             保存草稿
           </Button>
-          <Button variant="primary" onClick={handlePublish}>
-            发布
+          <Button variant="primary" onClick={handlePublish} disabled={saving}>
+            {saving ? '发布中...' : '发布'}
           </Button>
         </div>
       </div>
 
-      {/* Body */}
       <div className="flex-1 flex gap-5 p-8 overflow-auto">
         <StepsColumn activeStep={4} />
 
         <div className="flex-1 overflow-auto">
           <div className="p-8 bg-white rounded-xl border border-border-subtle flex flex-col gap-5">
-            {/* Header */}
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-bold text-text-primary">调试发布</h2>
               <p className="text-[13px] text-text-tertiary">
@@ -170,15 +238,12 @@ const AgentCreatePublishPage: React.FC = () => {
               </p>
             </div>
 
-            {/* Enter Debug Link */}
-            <button
-              onClick={() => navigate('/agents/debug')}
-              className="flex items-center gap-1.5 text-[13px] font-medium text-brand-500 hover:text-brand-600 transition-colors"
-            >
-              进入调试 →
-            </button>
+            {error && (
+              <div className="px-3 py-2 bg-error-50 border border-error-200 rounded text-sm text-error-500">
+                {error}
+              </div>
+            )}
 
-            {/* Publish Checklist */}
             <div className="flex flex-col gap-3">
               <label className="text-[13px] font-medium text-text-primary">发布检查清单</label>
               {checklist.map((item) => (
@@ -200,7 +265,6 @@ const AgentCreatePublishPage: React.FC = () => {
               ))}
             </div>
 
-            {/* Version Field */}
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-medium text-text-primary">版本号</label>
               <input
@@ -212,7 +276,6 @@ const AgentCreatePublishPage: React.FC = () => {
               />
             </div>
 
-            {/* Publish Notes */}
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-medium text-text-primary">发布说明</label>
               <textarea
@@ -223,7 +286,6 @@ const AgentCreatePublishPage: React.FC = () => {
               />
             </div>
 
-            {/* Visibility Scope */}
             <div className="flex flex-col gap-2.5">
               <label className="text-[13px] font-medium text-text-primary">可见范围</label>
               <div className="flex flex-col gap-3">
@@ -240,19 +302,16 @@ const AgentCreatePublishPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Row */}
             <div className="flex items-center justify-between gap-2 pt-4">
+              <Button variant="secondary" onClick={() => navigate('/agents/collab')}>
+                上一步
+              </Button>
               <div className="flex items-center gap-2">
-                <Button variant="secondary" onClick={() => navigate('/agents/collab')}>
-                  上一步
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="secondary" onClick={() => navigate('/agents/debug')}>
+                <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
                   保存草稿
                 </Button>
-                <Button variant="primary" icon={<Rocket className="w-4 h-4" />} onClick={handlePublish}>
-                  发布
+                <Button variant="primary" icon={<Rocket className="w-4 h-4" />} onClick={handlePublish} disabled={saving}>
+                  {saving ? '发布中...' : '发布'}
                 </Button>
               </div>
             </div>

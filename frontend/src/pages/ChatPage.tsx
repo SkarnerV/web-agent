@@ -323,6 +323,7 @@ const ChatPage: React.FC = () => {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const agentIdFromUrl = searchParams.get('agentId')
+  const processedAgentIdRef = useRef<string | null>(null)
 
   // Session list
   const [sessions, setSessions] = useState<ChatSessionVO[]>([])
@@ -393,17 +394,19 @@ const ChatPage: React.FC = () => {
   // Auto-create session from ?agentId=
   useEffect(() => {
     if (!agentIdFromUrl || sessionsLoading) return
-    if (sessions.length > 0) return // already have sessions
+    if (processedAgentIdRef.current === agentIdFromUrl) return
+    processedAgentIdRef.current = agentIdFromUrl
     ;(async () => {
       try {
         const s = await createSession({ agentId: agentIdFromUrl })
-        setSessions((prev) => [s, ...prev])
+        setSessions((prev) => [s, ...prev.filter((session) => session.id !== s.id)])
         setActiveSessionId(s.id)
+        setMessages([])
       } catch {
         // ignore
       }
     })()
-  }, [agentIdFromUrl, sessionsLoading, sessions.length])
+  }, [agentIdFromUrl, sessionsLoading])
 
   // ── Load session detail ──
 
@@ -441,7 +444,8 @@ const ChatPage: React.FC = () => {
       }
 
       const currentSessionAgentId = sessions.find((s) => s.id === activeSessionId)?.currentAgentId
-      const agent = availableAgents.find((a) => a.id === (currentSessionAgentId ?? agentIdFromUrl)) ?? availableAgents[0]
+      const preferredAgentId = agentIdFromUrl ?? currentSessionAgentId
+      const agent = availableAgents.find((a) => a.id === preferredAgentId) ?? availableAgents[0]
       if (!agent) {
         alert('请先创建一个智能体')
         return
@@ -527,15 +531,15 @@ const ChatPage: React.FC = () => {
     // Create a session if none active
     if (!sessionId) {
       try {
-        const firstAgent = agents[0]
-        if (!firstAgent) {
+        const preferredAgent = agents.find((a) => a.id === agentIdFromUrl) ?? agents[0]
+        if (!preferredAgent) {
           alert('请先创建一个智能体')
           return
         }
-        const s = await createSession({ agentId: firstAgent.id })
+        const s = await createSession({ agentId: preferredAgent.id })
         setSessions((prev) => [s, ...prev])
         sessionId = s.id
-        currentAgentName = firstAgent.name
+        currentAgentName = preferredAgent.name
       } catch {
         alert('创建会话失败')
         return
@@ -995,7 +999,7 @@ const ChatPage: React.FC = () => {
                   <div className="flex flex-col gap-1">
                     <span className="text-sm font-semibold text-text-primary">{currentAgent.name}</span>
                     <span className="text-xs text-text-tertiary">
-                      {currentAgent.status === 'PUBLISHED' ? '已发布' : currentAgent.status === 'DRAFT' ? '草稿' : '已归档'}
+                      {currentAgent.status === 'published' ? '已发布' : currentAgent.status === 'draft' ? '草稿' : '已归档'}
                     </span>
                   </div>
                 </div>

@@ -65,6 +65,12 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
                 .orElseThrow(() -> new BizException(ErrorCode.CHAT_MODEL_ERROR,
                         Map.of("reason", "Model not found: " + modelId)));
 
+        if (model.getSource() == ModelInfo.Source.BUILTIN
+                && (builtinModelKey == null || builtinModelKey.isBlank())) {
+            log.info("No builtin model API key configured; using local development LLM stub for {}", modelId);
+            return localStubStream();
+        }
+
         String apiUrl = resolveApiUrl(model);
         String apiKey = resolveApiKey(model);
         String modelName = resolveModelName(model);
@@ -141,6 +147,20 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
             return model.getId();
         }
         return model.getName();
+    }
+
+    private Iterator<LlmChunk> localStubStream() {
+        List<LlmChunk> chunks = new ArrayList<>();
+        chunks.add(new LlmChunk.TokenChunk("我是"));
+        chunks.add(new LlmChunk.TokenChunk("本地"));
+        chunks.add(new LlmChunk.TokenChunk("开发"));
+        chunks.add(new LlmChunk.TokenChunk("模型"));
+        chunks.add(new LlmChunk.TokenChunk("助手"));
+        chunks.add(new LlmChunk.TokenChunk("，"));
+        chunks.add(new LlmChunk.TokenChunk("已收到"));
+        chunks.add(new LlmChunk.TokenChunk("你的消息。"));
+        chunks.add(new LlmChunk.FinishChunk("stop", 50, 20));
+        return chunks.iterator();
     }
 
     private String buildRequestBody(String modelName, List<LlmMessage> messages,
