@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Check, Search, Wand, Plug, BookOpen, Plus, X,
   Globe, FileText, Code, Database, Mail, Calendar, Wrench, Trash2, Loader2,
+  HelpCircle, ListTodo,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
@@ -23,7 +24,8 @@ type StepType = 1 | 2 | 3 | 4
 
 const builtinTools = [
   { id: 'web_search', name: 'web_search', description: '搜索互联网获取最新信息', icon: Globe },
-  { id: 'ask_question', name: 'ask_question', description: '向用户提问以获取更多信息', icon: Wand },
+  { id: 'question', name: 'question', description: '向用户提问并等待用户选择后继续执行', icon: HelpCircle },
+  { id: 'todo', name: 'todo', description: '创建或更新右侧信息栏中的任务清单', icon: ListTodo },
   { id: 'read_file', name: 'read_file', description: '读取文件内容', icon: FileText },
   { id: 'write_file', name: 'write_file', description: '创建或更新文件', icon: FileText },
   { id: 'execute_code', name: 'execute_code', description: '在沙箱环境中执行代码', icon: Code },

@@ -79,6 +79,36 @@ public class SseEventBuilder {
         return buildEvent("tool_call_end", data);
     }
 
+    public SseEventWithMeta todoUpdated(String toolCallId, String title,
+                                        List<Map<String, Object>> items) {
+        Map<String, Object> data = baseData();
+        data.put("tool_call_id", toolCallId);
+        data.put("title", title);
+        data.put("items", items);
+        return buildEvent("todo_updated", data);
+    }
+
+    public SseEventWithMeta question(String toolCallId, UUID sessionStateId,
+                                     String questionId, String question,
+                                     List<Map<String, Object>> options,
+                                     boolean allowFreeText, boolean multiSelect) {
+        Map<String, Object> data = baseData();
+        data.put("tool_call_id", toolCallId);
+        data.put("session_state_id", sessionStateId.toString());
+        data.put("question_id", questionId);
+        data.put("question", question);
+        data.put("options", options);
+        data.put("allow_free_text", allowFreeText);
+        data.put("multi_select", multiSelect);
+        return buildEvent("question", data);
+    }
+
+    public SseEventWithMeta runStatus(String status) {
+        Map<String, Object> data = baseData();
+        data.put("status", status);
+        return buildEvent("run_status", data);
+    }
+
     public SseEventWithMeta citation(List<Map<String, Object>> sources) {
         Map<String, Object> data = baseData();
         data.put("sources", sources);

@@ -4,6 +4,7 @@ import type {
   ChatSessionDetailVO,
   CreateSessionRequest,
   SendMessageRequest,
+  QuestionAnswerRequest,
   SwitchAgentRequest,
   PageResult,
   SseEvent,
@@ -67,6 +68,17 @@ export function continueSession(
   return sseStream(`/chat/sessions/${sessionId}/continue`, {
     method: 'POST',
     body: JSON.stringify({ sessionStateId }),
+  })
+}
+
+export function answerQuestion(
+  sessionId: string,
+  sessionStateId: string,
+  data: QuestionAnswerRequest,
+): { abort: () => void; stream: AsyncGenerator<SseEvent> } {
+  return sseStream(`/chat/sessions/${sessionId}/questions/${sessionStateId}/answer`, {
+    method: 'POST',
+    body: JSON.stringify(data),
   })
 }
 

@@ -1,12 +1,15 @@
 package com.agentplatform.chat.orchestrator;
 
 import com.agentplatform.chat.dto.SendMessageRequest;
+import com.agentplatform.chat.dto.QuestionAnswerRequest;
 import com.agentplatform.chat.entity.ChatMessageEntity;
 import com.agentplatform.chat.entity.ChatSessionEntity;
 import com.agentplatform.chat.entity.ChatSessionStateEntity;
 import com.agentplatform.chat.llm.LlmChunk;
 import com.agentplatform.chat.llm.LlmMessage;
+import com.agentplatform.chat.llm.LlmMessage.LlmToolCall;
 import com.agentplatform.chat.llm.LlmStreamService;
+import com.agentplatform.chat.llm.LlmToolSpecFactory;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
 import com.agentplatform.chat.mapper.ChatSessionStateMapper;
 import com.agentplatform.chat.service.ChatSessionService;
@@ -14,11 +17,17 @@ import com.agentplatform.chat.sse.IdempotencyService;
 import com.agentplatform.chat.sse.SseEventBuilder;
 import com.agentplatform.chat.sse.SseEventBuilder.SseEventWithMeta;
 import com.agentplatform.chat.sse.SseEventCacheService;
+import com.agentplatform.chat.tool.BuiltinToolExecutor;
+import com.agentplatform.chat.tool.BuiltinToolExecutor.PendingQuestion;
+import com.agentplatform.chat.tool.BuiltinToolExecutor.TodoState;
 import com.agentplatform.chat.tool.ToolDispatcher;
+import com.agentplatform.common.core.tool.BuiltinUiTools;
 import com.agentplatform.common.core.tool.ToolResult;
+import com.agentplatform.chat.tool.BuiltinToolExecutor.QuestionOption;
 import com.agentplatform.common.core.agent.AgentConfigProvider;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,6 +61,8 @@ public class ChatOrchestrator {
     private final ChatSessionStateMapper sessionStateMapper;
     private final LlmStreamService llmStreamService;
     private final ToolDispatcher toolDispatcher;
+    private final BuiltinToolExecutor builtinToolExecutor;
+    private final LlmToolSpecFactory llmToolSpecFactory;
     private final ObjectMapper objectMapper;
     private final Optional<AgentConfigProvider> agentConfigProvider;
     private final Optional<IdempotencyService> idempotencyService;
@@ -64,6 +75,8 @@ public class ChatOrchestrator {
                             ChatSessionStateMapper sessionStateMapper,
                             LlmStreamService llmStreamService,
                             ToolDispatcher toolDispatcher,
+                            BuiltinToolExecutor builtinToolExecutor,
+                            LlmToolSpecFactory llmToolSpecFactory,
                             ObjectMapper objectMapper,
                             Optional<AgentConfigProvider> agentConfigProvider,
                             Optional<IdempotencyService> idempotencyService,
@@ -73,6 +86,8 @@ public class ChatOrchestrator {
         this.sessionStateMapper = sessionStateMapper;
         this.llmStreamService = llmStreamService;
         this.toolDispatcher = toolDispatcher;
+        this.builtinToolExecutor = builtinToolExecutor;
+        this.llmToolSpecFactory = llmToolSpecFactory;
         this.objectMapper = objectMapper;
         this.agentConfigProvider = agentConfigProvider;
         this.idempotencyService = idempotencyService;
@@ -110,7 +125,7 @@ public class ChatOrchestrator {
         int maxSteps = resolveMaxSteps(agentId);
 
         return startStreamReply(session, requestId, messageId, maxSteps, 0, false,
-                request.getIdempotencyKey());
+                request.getIdempotencyKey(), null);
     }
 
     public SseEmitter handleRegenerate(UUID sessionId, UUID msgId, UUID userId) {
@@ -134,7 +149,7 @@ public class ChatOrchestrator {
 
         int maxSteps = resolveMaxSteps(session.getCurrentAgentId());
 
-        return startStreamReply(session, requestId, messageId, maxSteps, 0, true, null);
+        return startStreamReply(session, requestId, messageId, maxSteps, 0, true, null, null);
     }
 
     public SseEmitter handleReconnect(UUID sessionId, String lastEventId, UUID userId) {
@@ -178,17 +193,56 @@ public class ChatOrchestrator {
         }
 
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
-        String messageId = UUID.randomUUID().toString();
         int resumeStep = state.getStepCount();
 
         int maxSteps = resolveMaxSteps(session.getCurrentAgentId());
 
-        return startStreamReply(session, requestId, messageId, maxSteps, resumeStep, false, null);
+        ResumeData resume = resumeDataFromState(state, null);
+        String messageId = resume.messageId() != null ? resume.messageId() : UUID.randomUUID().toString();
+        return startStreamReply(session, requestId, messageId, maxSteps, resumeStep, true, null, resume);
+    }
+
+    public SseEmitter handleQuestionAnswer(UUID sessionId, UUID sessionStateId,
+                                           QuestionAnswerRequest request, UUID userId) {
+        ChatSessionEntity session = sessionService.getSessionOrThrow(sessionId, userId);
+
+        ChatSessionStateEntity state = sessionStateMapper.selectById(sessionStateId);
+        if (state == null || !state.getSessionId().equals(sessionId)) {
+            throw new BizException(ErrorCode.CHAT_SESSION_NOT_FOUND);
+        }
+        if (state.getExpiresAt().isBefore(OffsetDateTime.now())) {
+            throw new BizException(ErrorCode.CHAT_SESSION_STATE_EXPIRED,
+                    Map.of("session_state_id", sessionStateId.toString()));
+        }
+
+        Map<String, Object> toolCache = parseJsonMap(state.getToolCache());
+        PendingQuestion pending = pendingQuestionFromRaw(toolCache.get("pending_question"));
+        if (pending == null || !Objects.equals(pending.questionId(), request.getQuestionId())) {
+            throw new BizException(ErrorCode.INVALID_REQUEST,
+                    Map.of("reason", "Question does not match pending state"));
+        }
+
+        String answerResult = builtinToolExecutor.buildQuestionAnswerResult(
+                pending, request.getSelectedOptionIds(), request.getAnswerText());
+        ResumeData resume = resumeDataFromState(state,
+                new QuestionAnswer(pending.toolCallId(), answerResult));
+
+        String messageId = resume.messageId();
+        if (messageId == null) {
+            throw new BizException(ErrorCode.INVALID_REQUEST,
+                    Map.of("reason", "Pending question state is missing message_id"));
+        }
+
+        String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
+        int maxSteps = resolveMaxSteps(session.getCurrentAgentId());
+        return startStreamReply(session, requestId, messageId, maxSteps, state.getStepCount(),
+                true, null, resume);
     }
 
     private SseEmitter startStreamReply(ChatSessionEntity session, String requestId,
                                          String messageId, int maxSteps, int startStep,
-                                         boolean isUpdate, String idempotencyKey) {
+                                         boolean isUpdate, String idempotencyKey,
+                                         ResumeData resumeData) {
         SseEmitter emitter = new SseEmitter(SSE_TIMEOUT_MS);
 
         ScheduledFuture<?> heartbeat = heartbeatScheduler.scheduleAtFixedRate(() -> {
@@ -206,37 +260,55 @@ public class ChatOrchestrator {
 
         Thread.ofVirtual().name("chat-orch-" + messageId).start(() ->
                 streamReply(session, requestId, messageId, maxSteps, startStep, isUpdate,
-                        idempotencyKey, emitter));
+                        idempotencyKey, resumeData, emitter));
 
         return emitter;
     }
 
     private void streamReply(ChatSessionEntity session, String requestId, String messageId,
                              int maxSteps, int startStep, boolean isUpdate,
-                             String idempotencyKey, SseEmitter emitter) {
+                             String idempotencyKey, ResumeData resumeData, SseEmitter emitter) {
         SseEventBuilder evt = new SseEventBuilder(requestId, messageId, objectMapper);
-        StringBuilder fullContent = new StringBuilder();
-        List<Map<String, Object>> toolCallRecords = new ArrayList<>();
-        List<Map<String, Object>> toolResultRecords = new ArrayList<>();
+        StringBuilder fullContent = new StringBuilder(resumeData != null && resumeData.initialContent() != null
+                ? resumeData.initialContent() : "");
+        List<Map<String, Object>> toolCallRecords = new ArrayList<>(
+                resumeData != null ? resumeData.toolCallRecords() : List.of());
+        List<Map<String, Object>> toolResultRecords = new ArrayList<>(
+                resumeData != null ? resumeData.toolResultRecords() : List.of());
+        TodoState todoState = resumeData != null ? resumeData.todoState() : null;
         int totalSteps = startStep;
         int promptTokens = 0;
         int completionTokens = 0;
+        String finalFinishReason = "stop";
 
         try {
             UUID agentId = session.getCurrentAgentId();
             String modelId = resolveModelId(agentId);
             Map<String, Map<String, Object>> toolBindingMap = agentConfigProvider.map(p -> p.getToolBindings(agentId)).orElse(Map.of());
+            List<Map<String, Object>> tools = llmToolSpecFactory.buildTools(toolBindingMap);
 
             sseEventCacheService.ifPresent(svc -> svc.registerSessionMessage(session.getId().toString(), messageId));
             sendAndCache(emitter, evt.messageStart(agentId, modelId), messageId);
 
-            List<LlmMessage> context = buildContext(session);
+            List<LlmMessage> context = resumeData != null
+                    ? new ArrayList<>(resumeData.context())
+                    : buildContext(session);
+            if (resumeData != null && resumeData.questionAnswer() != null) {
+                QuestionAnswer answer = resumeData.questionAnswer();
+                context.add(LlmMessage.toolResult(answer.toolCallId(), answer.content()));
+                toolResultRecords.add(Map.of(
+                        "tool_call_id", answer.toolCallId(),
+                        "status", "success",
+                        "content", answer.content(),
+                        "builtin_ui", BuiltinUiTools.QUESTION));
+            }
 
             for (int step = startStep + 1; step <= startStep + maxSteps; step++) {
                 totalSteps = step;
 
-                Iterator<LlmChunk> stream = llmStreamService.stream(modelId, context, List.of());
-                boolean continueLoop = false;
+                Iterator<LlmChunk> stream = llmStreamService.stream(modelId, context, tools);
+                List<LlmChunk.ToolCallChunk> stepToolCalls = new ArrayList<>();
+                StringBuilder assistantStepContent = new StringBuilder();
 
                 while (stream.hasNext()) {
                     LlmChunk chunk = stream.next();
@@ -244,37 +316,14 @@ public class ChatOrchestrator {
                     switch (chunk) {
                         case LlmChunk.TokenChunk tc -> {
                             fullContent.append(tc.delta());
+                            assistantStepContent.append(tc.delta());
                             sendAndCache(emitter, evt.token(tc.delta()), messageId);
                         }
-                        case LlmChunk.ToolCallChunk tcc -> {
-                            sendAndCache(emitter, evt.toolCallStart(tcc.toolCallId(), tcc.toolName(),
-                                    tcc.arguments(), step), messageId);
-
-                            Map<String, Object> bindingConfig = toolBindingMap.getOrDefault(
-                                    tcc.toolName(), Map.of());
-                            ToolResult result = toolDispatcher.dispatch(
-                                    tcc.toolCallId(), tcc.toolName(), tcc.arguments(), bindingConfig);
-
-                            sendAndCache(emitter, evt.toolCallEnd(tcc.toolCallId(), result.status(),
-                                    truncate(result.content(), 200), result.durationMs()),
-                                    messageId);
-
-                            toolCallRecords.add(Map.of(
-                                    "tool_call_id", tcc.toolCallId(),
-                                    "tool_name", tcc.toolName(),
-                                    "arguments", tcc.arguments()));
-                            toolResultRecords.add(Map.of(
-                                    "tool_call_id", tcc.toolCallId(),
-                                    "status", result.status(),
-                                    "content", result.content()));
-
-                            context.add(LlmMessage.toolResult(tcc.toolCallId(), result.content()));
-                            continueLoop = true;
-                        }
+                        case LlmChunk.ToolCallChunk tcc -> stepToolCalls.add(tcc);
                         case LlmChunk.FinishChunk fc -> {
                             promptTokens += fc.promptTokens();
                             completionTokens += fc.completionTokens();
-                            continueLoop = false;
+                            finalFinishReason = fc.finishReason() != null ? fc.finishReason() : "stop";
                         }
                         case LlmChunk.ErrorChunk ec -> {
                             sendAndCache(emitter, evt.error(ec.code(), ec.message(), false),
@@ -289,12 +338,104 @@ public class ChatOrchestrator {
                     }
                 }
 
-                if (!continueLoop) {
+                if (stepToolCalls.isEmpty()) {
                     break;
                 }
 
+                List<LlmChunk.ToolCallChunk> normalizedToolCalls = stepToolCalls.stream()
+                        .map(t -> new LlmChunk.ToolCallChunk(
+                                t.toolCallId() == null || t.toolCallId().isBlank()
+                                        ? "call_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12)
+                                        : t.toolCallId(),
+                                t.toolName(),
+                                t.arguments()))
+                        .toList();
+
+                context.add(LlmMessage.assistantToolCalls(
+                        assistantStepContent.toString().isBlank() ? null : assistantStepContent.toString(),
+                        normalizedToolCalls.stream()
+                                .map(t -> new LlmToolCall(t.toolCallId(), t.toolName(), t.arguments()))
+                                .toList()));
+
+                for (LlmChunk.ToolCallChunk tcc : normalizedToolCalls) {
+                    String toolCallId = tcc.toolCallId();
+                    sendAndCache(emitter, evt.toolCallStart(toolCallId, tcc.toolName(),
+                            tcc.arguments(), step), messageId);
+
+                    toolCallRecords.add(Map.of(
+                            "tool_call_id", toolCallId,
+                            "tool_name", tcc.toolName(),
+                            "arguments", tcc.arguments()));
+
+                    if (BuiltinUiTools.TODO.equals(tcc.toolName())) {
+                        long start = System.currentTimeMillis();
+                        todoState = builtinToolExecutor.applyTodo(tcc.arguments(), todoState);
+                        List<Map<String, Object>> items = todoItemsAsMaps(todoState);
+                        sendAndCache(emitter, evt.todoUpdated(toolCallId, todoState.title(), items),
+                                messageId);
+                        String resultContent = toJson(todoResultMap(todoState));
+                        sendAndCache(emitter, evt.toolCallEnd(toolCallId, "success",
+                                        "Todo list updated", System.currentTimeMillis() - start),
+                                messageId);
+                        toolResultRecords.add(Map.of(
+                                "tool_call_id", toolCallId,
+                                "status", "success",
+                                "content", resultContent,
+                                "todo_state", todoStateAsMap(todoState)));
+                        context.add(LlmMessage.toolResult(toolCallId, resultContent));
+                        continue;
+                    }
+
+                    if (BuiltinUiTools.QUESTION.equals(tcc.toolName())) {
+                        long start = System.currentTimeMillis();
+                        PendingQuestion pendingQuestion = builtinToolExecutor.parseQuestion(toolCallId, tcc.arguments());
+                        Map<String, Object> questionState = pendingQuestionAsMap(pendingQuestion);
+                        UUID stateId = UUID.randomUUID();
+                        questionState.put("session_state_id", stateId.toString());
+                        toolResultRecords.add(Map.of(
+                                "tool_call_id", toolCallId,
+                                "status", "requires_action",
+                                "content", toJson(questionState),
+                                "question_state", questionState));
+                        saveSessionState(stateId, session.getId(), context, step,
+                                toolCache("question", messageId, questionState, todoState,
+                                        toolCallRecords, toolResultRecords));
+                        sendAndCache(emitter, evt.toolCallEnd(toolCallId, "requires_action",
+                                        "Waiting for user answer", System.currentTimeMillis() - start),
+                                messageId);
+                        sendAndCache(emitter, evt.question(toolCallId, stateId,
+                                        pendingQuestion.questionId(), pendingQuestion.question(),
+                                        questionOptionsAsMaps(pendingQuestion),
+                                        pendingQuestion.allowFreeText(), pendingQuestion.multiSelect()),
+                                messageId);
+                        persistMessage(session.getId(), messageId, fullContent.toString(),
+                                "incomplete", agentId, modelId, totalSteps,
+                                toolCallRecords, toolResultRecords, promptTokens, completionTokens,
+                                isUpdate);
+                        emitter.complete();
+                        return;
+                    }
+
+                    Map<String, Object> bindingConfig = toolBindingMap.getOrDefault(
+                            tcc.toolName(), Map.of());
+                    ToolResult result = toolDispatcher.dispatch(
+                            toolCallId, tcc.toolName(), tcc.arguments(), bindingConfig);
+
+                    sendAndCache(emitter, evt.toolCallEnd(toolCallId, result.status(),
+                                    truncate(result.content(), 200), result.durationMs()),
+                            messageId);
+
+                    toolResultRecords.add(Map.of(
+                            "tool_call_id", toolCallId,
+                            "status", result.status(),
+                            "content", result.content()));
+                    context.add(LlmMessage.toolResult(toolCallId, result.content()));
+                }
+
                 if (step >= startStep + maxSteps) {
-                    UUID stateId = saveSessionState(session.getId(), context, step);
+                    UUID stateId = saveSessionState(session.getId(), context, step,
+                            toolCache("step_limit", messageId, null, todoState,
+                                    toolCallRecords, toolResultRecords));
                     sendAndCache(emitter, evt.stepLimit(step, maxSteps, stateId), messageId);
                     persistMessage(session.getId(), messageId, fullContent.toString(),
                             "incomplete", agentId, modelId, totalSteps,
@@ -308,7 +449,7 @@ public class ChatOrchestrator {
             Map<String, Object> usage = Map.of(
                     "prompt_tokens", promptTokens,
                     "completion_tokens", completionTokens);
-            sendAndCache(emitter, evt.messageEnd("stop", usage, totalSteps), messageId);
+            sendAndCache(emitter, evt.messageEnd(finalFinishReason, usage, totalSteps), messageId);
 
             persistMessage(session.getId(), messageId, fullContent.toString(),
                     "complete", agentId, modelId, totalSteps,
@@ -424,17 +565,209 @@ public class ChatOrchestrator {
         return emitter;
     }
 
-    private UUID saveSessionState(UUID sessionId, List<LlmMessage> context, int stepCount) {
+    private ResumeData resumeDataFromState(ChatSessionStateEntity state, QuestionAnswer questionAnswer) {
+        List<LlmMessage> context = parseContextSnapshot(state.getContextSnapshot());
+        Map<String, Object> toolCache = parseJsonMap(state.getToolCache());
+        String messageId = stringValue(toolCache.get("message_id"));
+        TodoState todoState = todoStateFromRaw(toolCache.get("todo_state"));
+        List<Map<String, Object>> toolCalls = parseMapList(toolCache.get("tool_calls"));
+        List<Map<String, Object>> toolResults = parseMapList(toolCache.get("tool_results"));
+        String initialContent = "";
+
+        if (messageId != null) {
+            try {
+                ChatMessageEntity existing = messageMapper.selectById(UUID.fromString(messageId));
+                if (existing != null) {
+                    initialContent = existing.getContent() != null ? existing.getContent() : "";
+                    if (toolCalls.isEmpty()) {
+                        toolCalls = parseMapList(existing.getToolCalls());
+                    }
+                    if (toolResults.isEmpty()) {
+                        toolResults = parseMapList(existing.getToolResults());
+                    }
+                }
+            } catch (IllegalArgumentException ignored) {
+                // fall through with empty initial content
+            }
+        }
+
+        return new ResumeData(context, todoState, questionAnswer, messageId,
+                initialContent, toolCalls, toolResults);
+    }
+
+    private List<LlmMessage> parseContextSnapshot(String json) {
+        if (json == null || json.isBlank()) {
+            return new ArrayList<>();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse context snapshot: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    private Map<String, Object> parseJsonMap(String json) {
+        if (json == null || json.isBlank()) {
+            return Map.of();
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<>() {});
+        } catch (Exception e) {
+            log.warn("Failed to parse JSON map: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
+    private List<Map<String, Object>> parseMapList(Object raw) {
+        if (raw == null) {
+            return new ArrayList<>();
+        }
+        try {
+            if (raw instanceof String s) {
+                if (s.isBlank()) {
+                    return new ArrayList<>();
+                }
+                return objectMapper.readValue(s, new TypeReference<>() {});
+            }
+            if (raw instanceof List<?> list) {
+                return objectMapper.convertValue(list, new TypeReference<>() {});
+            }
+        } catch (Exception e) {
+            log.warn("Failed to parse map list: {}", e.getMessage());
+        }
+        return new ArrayList<>();
+    }
+
+    private TodoState todoStateFromRaw(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return objectMapper.convertValue(raw, TodoState.class);
+        } catch (Exception e) {
+            log.warn("Failed to parse todo state: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private PendingQuestion pendingQuestionFromRaw(Object raw) {
+        if (raw == null) {
+            return null;
+        }
+        try {
+            Map<String, Object> map = objectMapper.convertValue(raw, new TypeReference<>() {});
+            List<Map<String, Object>> optionMaps = parseMapList(map.get("options"));
+            List<QuestionOption> options = optionMaps.stream()
+                    .map(option -> new QuestionOption(
+                            stringValue(option.get("id")),
+                            stringValue(option.get("label")),
+                            stringValue(option.get("description"))))
+                    .toList();
+            return new PendingQuestion(
+                    firstString(map, "questionId", "question_id"),
+                    firstString(map, "toolCallId", "tool_call_id"),
+                    stringValue(map.get("question")),
+                    options,
+                    booleanValue(firstRaw(map, "allowFreeText", "allow_free_text")),
+                    booleanValue(firstRaw(map, "multiSelect", "multi_select")));
+        } catch (Exception e) {
+            log.warn("Failed to parse pending question: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private Map<String, Object> toolCache(String reason, String messageId,
+                                          Map<String, Object> pendingQuestion,
+                                          TodoState todoState,
+                                          List<Map<String, Object>> toolCalls,
+                                          List<Map<String, Object>> toolResults) {
+        Map<String, Object> cache = new LinkedHashMap<>();
+        cache.put("resume_reason", reason);
+        cache.put("message_id", messageId);
+        if (pendingQuestion != null) {
+            cache.put("pending_question", pendingQuestion);
+        }
+        if (todoState != null) {
+            cache.put("todo_state", todoStateAsMap(todoState));
+        }
+        cache.put("tool_calls", toolCalls);
+        cache.put("tool_results", toolResults);
+        return cache;
+    }
+
+    private Map<String, Object> todoResultMap(TodoState todoState) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "updated");
+        result.put("title", todoState.title());
+        result.put("items", todoItemsAsMaps(todoState));
+        return result;
+    }
+
+    private Map<String, Object> todoStateAsMap(TodoState todoState) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("title", todoState.title());
+        state.put("items", todoItemsAsMaps(todoState));
+        return state;
+    }
+
+    private List<Map<String, Object>> todoItemsAsMaps(TodoState todoState) {
+        if (todoState == null || todoState.items() == null) {
+            return List.of();
+        }
+        return todoState.items().stream().map(item -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", item.id());
+            map.put("title", item.title());
+            map.put("status", item.status());
+            if (item.detail() != null) {
+                map.put("detail", item.detail());
+            }
+            return map;
+        }).toList();
+    }
+
+    private Map<String, Object> pendingQuestionAsMap(PendingQuestion pendingQuestion) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("question_id", pendingQuestion.questionId());
+        map.put("tool_call_id", pendingQuestion.toolCallId());
+        map.put("question", pendingQuestion.question());
+        map.put("options", questionOptionsAsMaps(pendingQuestion));
+        map.put("allow_free_text", pendingQuestion.allowFreeText());
+        map.put("multi_select", pendingQuestion.multiSelect());
+        return map;
+    }
+
+    private List<Map<String, Object>> questionOptionsAsMaps(PendingQuestion pendingQuestion) {
+        return pendingQuestion.options().stream().map(option -> {
+            Map<String, Object> map = new LinkedHashMap<>();
+            map.put("id", option.id());
+            map.put("label", option.label());
+            if (option.description() != null) {
+                map.put("description", option.description());
+            }
+            return map;
+        }).toList();
+    }
+
+    private UUID saveSessionState(UUID sessionId, List<LlmMessage> context, int stepCount,
+                                  Map<String, Object> toolCache) {
         UUID stateId = UUID.randomUUID();
+        saveSessionState(stateId, sessionId, context, stepCount, toolCache);
+        return stateId;
+    }
+
+    private void saveSessionState(UUID stateId, UUID sessionId, List<LlmMessage> context,
+                                  int stepCount, Map<String, Object> toolCache) {
         ChatSessionStateEntity state = new ChatSessionStateEntity()
                 .setId(stateId)
                 .setSessionId(sessionId)
                 .setContextSnapshot(toJson(context))
                 .setStepCount(stepCount)
+                .setToolCache(toJson(toolCache))
                 .setCreatedAt(OffsetDateTime.now())
                 .setExpiresAt(OffsetDateTime.now().plusHours(1));
         sessionStateMapper.insert(state);
-        return stateId;
     }
 
     private void persistMessage(UUID sessionId, String messageId, String content, String status,
@@ -497,4 +830,35 @@ public class ChatOrchestrator {
         if (s == null) return "";
         return s.length() > maxLen ? s.substring(0, maxLen) + "..." : s;
     }
+
+    private String stringValue(Object value) {
+        return value == null ? null : value.toString();
+    }
+
+    private Object firstRaw(Map<String, Object> map, String firstKey, String secondKey) {
+        Object value = map.get(firstKey);
+        return value != null ? value : map.get(secondKey);
+    }
+
+    private String firstString(Map<String, Object> map, String firstKey, String secondKey) {
+        return stringValue(firstRaw(map, firstKey, secondKey));
+    }
+
+    private boolean booleanValue(Object value) {
+        if (value instanceof Boolean b) {
+            return b;
+        }
+        return value != null && Boolean.parseBoolean(value.toString());
+    }
+
+    private record QuestionAnswer(String toolCallId, String content) {}
+
+    private record ResumeData(
+            List<LlmMessage> context,
+            TodoState todoState,
+            QuestionAnswer questionAnswer,
+            String messageId,
+            String initialContent,
+            List<Map<String, Object>> toolCallRecords,
+            List<Map<String, Object>> toolResultRecords) {}
 }

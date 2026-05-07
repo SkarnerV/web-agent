@@ -528,6 +528,65 @@ export interface SseStepLimit {
   session_state_id: string
 }
 
+export type TodoStatus = 'pending' | 'in_progress' | 'completed' | 'blocked'
+
+export interface TodoItem {
+  id: string
+  title: string
+  status: TodoStatus
+  detail?: string
+}
+
+export interface TodoState {
+  title?: string
+  items: TodoItem[]
+}
+
+export interface QuestionOption {
+  id: string
+  label: string
+  description?: string
+}
+
+export interface QuestionCardState {
+  toolCallId: string
+  sessionStateId?: string
+  questionId: string
+  question: string
+  options: QuestionOption[]
+  allowFreeText: boolean
+  multiSelect: boolean
+  status: 'pending' | 'answering' | 'answered'
+  selectedOptionIds?: string[]
+  answerText?: string
+}
+
+export interface QuestionAnswerRequest {
+  questionId: string
+  selectedOptionIds?: string[]
+  answerText?: string
+}
+
+export interface SseTodoUpdated extends SseEventBase {
+  tool_call_id: string
+  title?: string
+  items: TodoItem[]
+}
+
+export interface SseQuestion extends SseEventBase {
+  tool_call_id: string
+  session_state_id: string
+  question_id: string
+  question: string
+  options: QuestionOption[]
+  allow_free_text: boolean
+  multi_select: boolean
+}
+
+export interface SseRunStatus extends SseEventBase {
+  status: string
+}
+
 export interface SseMessageEnd extends SseEventBase {
   finish_reason: string
   usage: Record<string, unknown>
@@ -548,6 +607,9 @@ export type SseEventType =
   | 'tool_call_end'
   | 'citation'
   | 'step_limit'
+  | 'todo_updated'
+  | 'question'
+  | 'run_status'
   | 'message_end'
   | 'error'
   | 'heartbeat'

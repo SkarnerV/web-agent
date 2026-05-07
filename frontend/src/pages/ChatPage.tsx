@@ -20,6 +20,10 @@ import {
   CheckCircle,
   XCircle,
   FileText,
+  HelpCircle,
+  ListTodo,
+  Circle,
+  Clock,
 } from 'lucide-react'
 import { Sidebar } from '../components/layout/Sidebar'
 import { ApiError } from '../api/client'
@@ -31,6 +35,7 @@ import {
   sendMessage,
   switchAgent,
   regenerateMessage,
+  answerQuestion,
 } from '../api/chat'
 import { listAgents } from '../api/agent'
 import type {
@@ -38,11 +43,18 @@ import type {
   ChatMessageVO,
   AgentSummaryVO,
   SseToken,
+  SseMessageStart,
   SseToolCallStart,
   SseToolCallEnd,
   SseStepLimit,
   SseError,
   SseCitation,
+  SseEvent,
+  SseTodoUpdated,
+  SseQuestion,
+  TodoState,
+  TodoStatus,
+  QuestionCardState,
 } from '../api/types'
 
 // ── Helpers ──
@@ -126,11 +138,15 @@ const ToolCallCard: React.FC<{ tc: ToolCallDetail }> = ({ tc }) => {
     ? Loader2
     : tc.status === 'success'
     ? CheckCircle
+    : tc.status === 'requires_action'
+    ? HelpCircle
     : XCircle
   const statusColor = tc.status === 'running'
     ? 'text-brand-500'
     : tc.status === 'success'
     ? 'text-green-500'
+    : tc.status === 'requires_action'
+    ? 'text-amber-500'
     : 'text-red-500'
 
   return (
@@ -165,6 +181,151 @@ const ToolCallCard: React.FC<{ tc: ToolCallDetail }> = ({ tc }) => {
   )
 }
 
+const todoStatusMeta: Record<TodoStatus, { label: string; dot: string; text: string }> = {
+  pending: { label: '待处理', dot: 'bg-gray-300', text: 'text-text-tertiary' },
+  in_progress: { label: '进行中', dot: 'bg-brand-500', text: 'text-brand-500' },
+  completed: { label: '已完成', dot: 'bg-green-500', text: 'text-green-600' },
+  blocked: { label: '阻塞', dot: 'bg-red-500', text: 'text-red-500' },
+}
+
+const TodoPanel: React.FC<{ todo: TodoState }> = ({ todo }) => {
+  const total = todo.items.length
+  const done = todo.items.filter((item) => item.status === 'completed').length
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <ListTodo className="w-4 h-4 text-brand-500" />
+        <span className="text-sm font-semibold text-text-primary">Agent Todo</span>
+        {total > 0 && (
+          <span className="ml-auto text-[11px] text-text-tertiary">{done}/{total}</span>
+        )}
+      </div>
+      <div className="rounded-xl border border-border-subtle bg-gray-50 p-3 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-xs font-semibold text-text-primary truncate">{todo.title || '任务清单'}</span>
+          {total > 0 && (
+            <span className="text-[11px] text-text-tertiary shrink-0">
+              {Math.round((done / total) * 100)}%
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          {todo.items.map((item) => {
+            const meta = todoStatusMeta[item.status] ?? todoStatusMeta.pending
+            return (
+              <div key={item.id} className="rounded-lg bg-white border border-border-subtle p-2.5">
+                <div className="flex items-start gap-2">
+                  {item.status === 'completed' ? (
+                    <CheckCircle className="w-3.5 h-3.5 text-green-500 shrink-0 mt-0.5" />
+                  ) : item.status === 'in_progress' ? (
+                    <Clock className="w-3.5 h-3.5 text-brand-500 shrink-0 mt-0.5" />
+                  ) : (
+                    <Circle className={`w-3.5 h-3.5 shrink-0 mt-0.5 ${meta.text}`} />
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-text-primary truncate">{item.title}</span>
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${meta.dot}`} />
+                    </div>
+                    {item.detail && (
+                      <p className="mt-1 text-[11px] text-text-tertiary line-clamp-2">{item.detail}</p>
+                    )}
+                    <span className={`mt-1 inline-block text-[10px] ${meta.text}`}>{meta.label}</span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          {todo.items.length === 0 && (
+            <p className="text-xs text-text-tertiary">Agent 尚未创建任务。</p>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const QuestionCard: React.FC<{
+  question: QuestionCardState
+  disabled?: boolean
+  onAnswer: (question: QuestionCardState, selectedOptionIds?: string[], answerText?: string) => void
+}> = ({ question, disabled, onAnswer }) => {
+  const [selected, setSelected] = React.useState<string[]>(question.selectedOptionIds ?? [])
+  const [freeText, setFreeText] = React.useState(question.answerText ?? '')
+  const locked = disabled || question.status === 'answered' || question.status === 'answering' || !question.sessionStateId
+
+  const toggleOption = (id: string) => {
+    if (locked) return
+    if (!question.multiSelect) {
+      setSelected([id])
+      onAnswer(question, [id], undefined)
+      return
+    }
+    setSelected((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id])
+  }
+
+  const submit = () => {
+    const text = freeText.trim()
+    onAnswer(question, selected, text || undefined)
+  }
+
+  return (
+    <div className="w-full rounded-xl border border-amber-200 bg-amber-50/70 p-3 flex flex-col gap-3">
+      <div className="flex items-start gap-2">
+        <HelpCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-text-primary">{question.question}</p>
+          <p className="mt-1 text-[11px] text-text-tertiary">
+            {question.status === 'answered' ? '已回答，Agent 正在继续执行。' : 'Agent 需要你选择后继续执行。'}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        {question.options.map((option) => {
+          const isSelected = selected.includes(option.id)
+          return (
+            <button
+              key={option.id}
+              onClick={() => toggleOption(option.id)}
+              disabled={locked}
+              className={`w-full text-left rounded-lg border px-3 py-2 transition-colors ${
+                isSelected
+                  ? 'border-amber-500 bg-white text-text-primary'
+                  : 'border-amber-100 bg-white/70 text-text-secondary hover:border-amber-300'
+              } disabled:cursor-not-allowed disabled:opacity-75`}
+            >
+              <span className="block text-xs font-semibold">{option.label}</span>
+              {option.description && (
+                <span className="mt-0.5 block text-[11px] text-text-tertiary">{option.description}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
+      {question.allowFreeText && question.status !== 'answered' && (
+        <textarea
+          value={freeText}
+          onChange={(e) => setFreeText(e.target.value)}
+          disabled={locked}
+          rows={2}
+          placeholder="也可以补充说明..."
+          className="w-full rounded-lg border border-amber-100 bg-white px-3 py-2 text-xs outline-none focus:border-amber-400 disabled:cursor-not-allowed"
+        />
+      )}
+      {(question.multiSelect || question.allowFreeText) && question.status !== 'answered' && (
+        <button
+          onClick={submit}
+          disabled={locked || (selected.length === 0 && !freeText.trim())}
+          className="self-end rounded-lg bg-amber-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-600 disabled:bg-gray-200 disabled:text-gray-400"
+        >
+          {question.status === 'answering' ? '提交中...' : '提交回答'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 const MessageBubble: React.FC<{
   role: 'user' | 'assistant' | 'system' | 'tool'
   content?: string
@@ -172,10 +333,12 @@ const MessageBubble: React.FC<{
   avatar: string
   agentName?: string
   toolCallDetails?: ToolCallDetail[]
+  questions?: QuestionCardState[]
   status?: string
   isLastAssistant?: boolean
   onRegenerate?: () => void
-}> = ({ role, content, time, avatar, agentName, toolCallDetails, status, isLastAssistant, onRegenerate }) => {
+  onAnswerQuestion?: (question: QuestionCardState, selectedOptionIds?: string[], answerText?: string) => void
+}> = ({ role, content, time, avatar, agentName, toolCallDetails, questions, status, isLastAssistant, onRegenerate, onAnswerQuestion }) => {
   const [copied, setCopied] = React.useState(false)
 
   const handleCopy = () => {
@@ -233,6 +396,18 @@ const MessageBubble: React.FC<{
             )}
           </div>
         )}
+        {questions && questions.length > 0 && onAnswerQuestion && (
+          <div className="flex flex-col gap-2 w-full">
+            {questions.map((question) => (
+              <QuestionCard
+                key={question.questionId}
+                question={question}
+                disabled={status === 'STREAMING'}
+                onAnswer={onAnswerQuestion}
+              />
+            ))}
+          </div>
+        )}
         {showActions && (
           <div className={`flex items-center gap-1 ${isLastAssistant ? '' : 'opacity-0 group-hover/msg:opacity-100'} transition-opacity`}>
             <button
@@ -269,7 +444,7 @@ const MessageBubble: React.FC<{
 interface ToolCallDetail {
   id: string
   name: string
-  status: 'running' | 'success' | 'failed'
+  status: 'running' | 'success' | 'failed' | 'requires_action'
   args?: string
   result?: string
 }
@@ -282,48 +457,184 @@ interface CitationSource {
 
 interface LocalMessage {
   id: string
+  backendId?: string
   role: 'user' | 'assistant' | 'system' | 'tool'
   content: string
   time: string
   avatar: string
   agentName?: string
   toolCallDetails?: ToolCallDetail[]
+  questions?: QuestionCardState[]
   citations?: CitationSource[]
   status?: string
 }
 
+const parseJsonArray = (value?: string): Array<Record<string, unknown>> => {
+  if (!value) return []
+  try {
+    const parsed = JSON.parse(value)
+    if (Array.isArray(parsed)) return parsed as Array<Record<string, unknown>>
+    if (parsed && typeof parsed === 'object') return [parsed as Record<string, unknown>]
+  } catch {
+    // ignore malformed historical payloads
+  }
+  return []
+}
+
+const stringValue = (value: unknown): string | undefined => {
+  return typeof value === 'string' ? value : undefined
+}
+
+const booleanValue = (value: unknown): boolean => {
+  return typeof value === 'boolean' ? value : value === 'true'
+}
+
+const toolStatus = (status?: string): ToolCallDetail['status'] => {
+  const normalized = status?.toLowerCase()
+  if (normalized === 'success') return 'success'
+  if (normalized === 'requires_action') return 'requires_action'
+  if (normalized === 'running') return 'running'
+  return 'failed'
+}
+
+const questionFromState = (
+  state: Record<string, unknown>,
+  answeredToolCalls: Set<string>,
+): QuestionCardState | null => {
+  const questionId = stringValue(state.question_id) ?? stringValue(state.questionId)
+  const toolCallId = stringValue(state.tool_call_id) ?? stringValue(state.toolCallId)
+  const question = stringValue(state.question)
+  const rawOptions = Array.isArray(state.options) ? state.options : []
+  if (!questionId || !toolCallId || !question || rawOptions.length === 0) return null
+
+  return {
+    toolCallId,
+    sessionStateId: stringValue(state.session_state_id) ?? stringValue(state.sessionStateId),
+    questionId,
+    question,
+    options: rawOptions
+      .filter((option): option is Record<string, unknown> => !!option && typeof option === 'object')
+      .map((option) => ({
+        id: stringValue(option.id) ?? '',
+        label: stringValue(option.label) ?? '',
+        description: stringValue(option.description),
+      }))
+      .filter((option) => option.id && option.label),
+    allowFreeText: booleanValue(state.allow_free_text ?? state.allowFreeText),
+    multiSelect: booleanValue(state.multi_select ?? state.multiSelect),
+    status: answeredToolCalls.has(toolCallId) ? 'answered' : 'pending',
+  }
+}
+
 const toLocal = (m: ChatMessageVO): LocalMessage => {
   let toolCallDetails: ToolCallDetail[] | undefined
-  if (m.toolCalls) {
-    try {
-      const parsed = JSON.parse(m.toolCalls)
-      toolCallDetails = (Array.isArray(parsed) ? parsed : [parsed]).map((t: { tool_call_id?: string; tool_name?: string; arguments?: string }, i: number) => ({
-        id: t.tool_call_id ?? `tc_${i}`,
-        name: t.tool_name ?? 'unknown',
-        status: 'success' as const,
-        args: t.arguments,
-        result: undefined,
-      }))
-    } catch { /* ignore */ }
+  let questions: QuestionCardState[] | undefined
+  const toolResults = parseJsonArray(m.toolResults)
+  const resultByToolCall = new Map<string, Record<string, unknown>>()
+  const answeredQuestionToolCalls = new Set<string>()
+  for (const result of toolResults) {
+    const toolCallId = stringValue(result.tool_call_id)
+    if (!toolCallId) continue
+    resultByToolCall.set(toolCallId, result)
+    if (toolStatus(stringValue(result.status)) === 'success' && result.builtin_ui === 'question') {
+      answeredQuestionToolCalls.add(toolCallId)
+    }
   }
+
+  if (m.toolCalls) {
+    const parsed = parseJsonArray(m.toolCalls)
+    toolCallDetails = parsed.map((t, i) => {
+      const toolCallId = stringValue(t.tool_call_id) ?? `tc_${i}`
+      const result = resultByToolCall.get(toolCallId)
+      return {
+        id: toolCallId,
+        name: stringValue(t.tool_name) ?? 'unknown',
+        status: result ? toolStatus(stringValue(result.status)) : 'success',
+        args: stringValue(t.arguments),
+        result: stringValue(result?.content),
+      }
+    })
+  }
+
+  const parsedQuestions = toolResults
+    .map((result) => {
+      const state = result.question_state
+      if (!state || typeof state !== 'object') return null
+      return questionFromState(state as Record<string, unknown>, answeredQuestionToolCalls)
+    })
+    .filter((question): question is QuestionCardState => question !== null)
+  if (parsedQuestions.length > 0) {
+    questions = parsedQuestions
+  }
+
   return {
     id: m.id,
+    backendId: m.id,
     role: m.role,
     content: m.content ?? '',
     time: m.createdAt,
     avatar: m.role === 'user' ? '我' : (m.agentId ?? 'A').substring(0, 1).toUpperCase(),
     agentName: m.agentId ? undefined : undefined,
     toolCallDetails,
+    questions,
     status: m.status,
   }
 }
+
+const latestTodoFromMessages = (messages: ChatMessageVO[]): TodoState | null => {
+  let latest: TodoState | null = null
+  for (const message of messages) {
+    for (const result of parseJsonArray(message.toolResults)) {
+      const rawTodo = result.todo_state
+      if (!rawTodo || typeof rawTodo !== 'object') continue
+      const todo = rawTodo as Record<string, unknown>
+      const items = Array.isArray(todo.items) ? todo.items : []
+      latest = {
+        title: stringValue(todo.title),
+        items: items
+          .filter((item): item is Record<string, unknown> => !!item && typeof item === 'object')
+          .map((item) => ({
+            id: stringValue(item.id) ?? '',
+            title: stringValue(item.title) ?? '',
+            status: (stringValue(item.status) as TodoStatus) ?? 'pending',
+            detail: stringValue(item.detail),
+          }))
+          .filter((item) => item.id && item.title),
+      }
+    }
+  }
+  return latest
+}
+
+const latestPendingQuestion = (messages: LocalMessage[]): QuestionCardState | null => {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const question = [...(messages[i].questions ?? [])]
+      .reverse()
+      .find((item) => item.status === 'pending' && item.sessionStateId)
+    if (question) return question
+  }
+  return null
+}
+
+const questionFromSse = (data: SseQuestion): QuestionCardState => ({
+  toolCallId: data.tool_call_id,
+  sessionStateId: data.session_state_id,
+  questionId: data.question_id,
+  question: data.question,
+  options: data.options ?? [],
+  allowFreeText: data.allow_free_text,
+  multiSelect: data.multi_select,
+  status: 'pending',
+})
 
 const ChatPage: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const agentIdFromUrl = searchParams.get('agentId')
+  const sessionIdFromUrl = searchParams.get('sessionId')
   const processedAgentIdRef = useRef<string | null>(null)
+  const processedSessionIdRef = useRef<string | null>(null)
 
   // Session list
   const [sessions, setSessions] = useState<ChatSessionVO[]>([])
@@ -355,6 +666,10 @@ const ChatPage: React.FC = () => {
 
   // Last message previews per session
   const [lastMessageMap, setLastMessageMap] = useState<Record<string, string>>({})
+
+  // Built-in UI tool state
+  const [activeTodo, setActiveTodo] = useState<TodoState | null>(null)
+  const [pendingQuestion, setPendingQuestion] = useState<QuestionCardState | null>(null)
 
   // ── Fetch sessions ──
 
@@ -394,6 +709,7 @@ const ChatPage: React.FC = () => {
   // Auto-create session from ?agentId=
   useEffect(() => {
     if (!agentIdFromUrl || sessionsLoading) return
+    if (sessionIdFromUrl) return
     if (processedAgentIdRef.current === agentIdFromUrl) return
     processedAgentIdRef.current = agentIdFromUrl
     ;(async () => {
@@ -402,11 +718,13 @@ const ChatPage: React.FC = () => {
         setSessions((prev) => [s, ...prev.filter((session) => session.id !== s.id)])
         setActiveSessionId(s.id)
         setMessages([])
+        setActiveTodo(null)
+        setPendingQuestion(null)
       } catch {
         // ignore
       }
     })()
-  }, [agentIdFromUrl, sessionsLoading])
+  }, [agentIdFromUrl, sessionIdFromUrl, sessionsLoading])
 
   // ── Load session detail ──
 
@@ -416,7 +734,23 @@ const ChatPage: React.FC = () => {
     try {
       const detail = await getSession(sessionId)
       const localMsgs = detail.messages.map(toLocal)
+      setActiveSessionId(detail.id)
+      const sessionSummary: ChatSessionVO = {
+        id: detail.id,
+        userId: detail.userId,
+        currentAgentId: detail.currentAgentId,
+        title: detail.title,
+        createdAt: detail.createdAt,
+        updatedAt: detail.updatedAt,
+      }
+      setSessions((prev) =>
+        prev.some((session) => session.id === detail.id)
+          ? prev.map((session) => session.id === detail.id ? sessionSummary : session)
+          : [sessionSummary, ...prev],
+      )
       setMessages(localMsgs)
+      setActiveTodo(latestTodoFromMessages(detail.messages))
+      setPendingQuestion(latestPendingQuestion(localMsgs))
       const last = [...localMsgs].reverse().find((m) => m.role !== 'system' && m.content)
       if (last) {
         setLastMessageMap((prev) => ({ ...prev, [sessionId]: last.content }))
@@ -427,6 +761,13 @@ const ChatPage: React.FC = () => {
       setMessagesLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (!sessionIdFromUrl || sessionsLoading) return
+    if (processedSessionIdRef.current === sessionIdFromUrl) return
+    processedSessionIdRef.current = sessionIdFromUrl
+    void loadSession(sessionIdFromUrl)
+  }, [sessionIdFromUrl, sessionsLoading, loadSession])
 
   // ── Create new session ──
 
@@ -455,6 +796,8 @@ const ChatPage: React.FC = () => {
       setSessions((prev) => [session, ...prev.filter((s) => s.id !== session.id)])
       setActiveSessionId(session.id)
       setMessages([])
+      setActiveTodo(null)
+      setPendingQuestion(null)
       setLastMessageMap((prev) => {
         const next = { ...prev }
         delete next[session.id]
@@ -492,6 +835,8 @@ const ChatPage: React.FC = () => {
         } else {
           setActiveSessionId('')
           setMessages([])
+          setActiveTodo(null)
+          setPendingQuestion(null)
         }
       }
     }
@@ -514,6 +859,140 @@ const ChatPage: React.FC = () => {
         return next
       })
     }
+  }
+
+  const consumeAssistantStream = async (
+    stream: AsyncGenerator<SseEvent>,
+    assistantId: string,
+  ): Promise<string> => {
+    let terminalStatus = 'COMPLETED'
+
+    for await (const event of stream) {
+      let nextTodo: TodoState | null = null
+      let nextQuestion: QuestionCardState | null = null
+
+      if (event.type === 'todo_updated') {
+        const todo = event.data as SseTodoUpdated
+        nextTodo = {
+          title: todo.title,
+          items: todo.items ?? [],
+        }
+        setActiveTodo(nextTodo)
+      }
+
+      if (event.type === 'question') {
+        nextQuestion = questionFromSse(event.data as SseQuestion)
+        terminalStatus = 'WAITING_USER_INPUT'
+        setPendingQuestion(nextQuestion)
+      }
+
+      if (event.type === 'message_end') {
+        terminalStatus = 'COMPLETED'
+        setPendingQuestion(null)
+      }
+
+      if (event.type === 'step_limit') {
+        terminalStatus = 'WAITING_CONTINUE'
+      }
+
+      if (event.type === 'error') {
+        const err = event.data as SseError
+        if (!err.recoverable) {
+          terminalStatus = 'FAILED'
+        }
+      }
+
+      setMessages((prev) =>
+        prev.map((m) => {
+          if (m.id !== assistantId && m.backendId !== assistantId) return m
+          const updated = { ...m }
+
+          switch (event.type) {
+            case 'message_start': {
+              const start = event.data as SseMessageStart
+              updated.backendId = start.message_id
+              updated.status = 'STREAMING'
+              break
+            }
+            case 'token': {
+              const t = event.data as SseToken
+              updated.content = (updated.content ?? '') + t.delta
+              break
+            }
+            case 'tool_call_start': {
+              const tc = event.data as SseToolCallStart
+              const detail: ToolCallDetail = {
+                id: tc.tool_call_id,
+                name: tc.tool_name,
+                status: 'running',
+                args: tc.arguments,
+              }
+              updated.toolCallDetails = [...(updated.toolCallDetails ?? []), detail]
+              break
+            }
+            case 'tool_call_end': {
+              const tc = event.data as SseToolCallEnd
+              updated.toolCallDetails = (updated.toolCallDetails ?? []).map((d) =>
+                d.id === tc.tool_call_id
+                  ? { ...d, status: toolStatus(tc.status), result: tc.result_summary }
+                  : d,
+              )
+              break
+            }
+            case 'todo_updated': {
+              if (nextTodo) {
+                updated.status = 'STREAMING'
+              }
+              break
+            }
+            case 'question': {
+              if (nextQuestion) {
+                updated.questions = [
+                  ...(updated.questions ?? []).filter((q) => q.questionId !== nextQuestion?.questionId),
+                  nextQuestion,
+                ]
+                updated.status = 'WAITING_USER_INPUT'
+              }
+              break
+            }
+            case 'citation': {
+              const c = event.data as SseCitation
+              updated.citations = c.sources as CitationSource[]
+              break
+            }
+            case 'step_limit': {
+              const sl = event.data as SseStepLimit
+              updated.content = `(已达最大步数限制 ${sl.current_step}/${sl.max_steps}，可继续执行)`
+              updated.status = 'WAITING_CONTINUE'
+              break
+            }
+            case 'message_end': {
+              updated.status = 'COMPLETED'
+              break
+            }
+            case 'error': {
+              const err = event.data as SseError
+              if (!err.recoverable) {
+                updated.content = updated.content || `错误: ${err.message}`
+                updated.status = 'FAILED'
+              }
+              break
+            }
+          }
+          return updated
+        }),
+      )
+    }
+
+    setMessages((prev) =>
+      prev.map((m) => {
+        if (m.id !== assistantId && m.backendId !== assistantId) return m
+        const shouldWait = terminalStatus === 'WAITING_USER_INPUT' || m.status === 'WAITING_USER_INPUT'
+        return { ...m, status: shouldWait ? 'WAITING_USER_INPUT' : terminalStatus }
+      }),
+    )
+
+    return terminalStatus
   }
 
   // ── Send message via SSE ──
@@ -557,6 +1036,8 @@ const ChatPage: React.FC = () => {
       avatar: '我',
     }
     setMessages((prev) => [...prev, userMsg])
+    setActiveTodo(null)
+    setPendingQuestion(null)
     setSending(true)
 
     // Add a placeholder assistant message that we'll update with streaming content
@@ -574,69 +1055,10 @@ const ChatPage: React.FC = () => {
 
     try {
       const { stream } = sendMessage(sessionId, { content })
-
-      for await (const event of stream) {
-        setMessages((prev) =>
-          prev.map((m) => {
-            if (m.id !== assistantId) return m
-            const updated = { ...m }
-
-            switch (event.type) {
-              case 'token': {
-                const t = event.data as SseToken
-                updated.content = (updated.content ?? '') + t.delta
-                break
-              }
-              case 'tool_call_start': {
-                const tc = event.data as SseToolCallStart
-                const detail: ToolCallDetail = {
-                  id: tc.tool_call_id,
-                  name: tc.tool_name,
-                  status: 'running',
-                  args: tc.arguments,
-                }
-                updated.toolCallDetails = [...(updated.toolCallDetails ?? []), detail]
-                break
-              }
-              case 'tool_call_end': {
-                const tc = event.data as SseToolCallEnd
-                updated.toolCallDetails = (updated.toolCallDetails ?? []).map((d) =>
-                  d.id === tc.tool_call_id
-                    ? { ...d, status: tc.status === 'SUCCESS' ? 'success' as const : 'failed' as const, result: tc.result_summary }
-                    : d,
-                )
-                break
-              }
-              case 'citation': {
-                const c = event.data as SseCitation
-                updated.citations = c.sources as CitationSource[]
-                break
-              }
-              case 'step_limit': {
-                const sl = event.data as SseStepLimit
-                updated.content = `(已达最大步数限制 ${sl.current_step}/${sl.max_steps}，可继续执行)`
-                break
-              }
-              case 'message_end': {
-                updated.status = 'COMPLETED'
-                break
-              }
-              case 'error': {
-                const err = event.data as SseError
-                if (!err.recoverable) {
-                  updated.content = updated.content || `错误: ${err.message}`
-                  updated.status = 'FAILED'
-                }
-                break
-              }
-            }
-            return updated
-          }),
-        )
-      }
+      await consumeAssistantStream(stream, assistantId)
 
       setMessages((prev) => {
-        const finalized = prev.map((m) => (m.id === assistantId ? { ...m, status: 'COMPLETED' } : m))
+        const finalized = prev
         const last = [...finalized].reverse().find((m) => m.role !== 'system' && m.content)
         if (last && sessionId) {
           setLastMessageMap((p) => ({ ...p, [sessionId]: last.content }))
@@ -672,43 +1094,14 @@ const ChatPage: React.FC = () => {
     }
 
     setMessages((prev) => {
-      const idx = prev.findIndex((m) => m.id === messageId)
+      const idx = prev.findIndex((m) => m.id === messageId || m.backendId === messageId)
       if (idx === -1) return [...prev, regenMsg]
       return [...prev.slice(0, idx), regenMsg]
     })
 
     try {
       const { stream } = regenerateMessage(activeSessionId, messageId)
-      for await (const event of stream) {
-        setMessages((prev) =>
-          prev.map((m) => {
-            if (m.id !== regenId) return m
-            const updated = { ...m }
-            switch (event.type) {
-              case 'token': {
-                const t = event.data as SseToken
-                updated.content = (updated.content ?? '') + t.delta
-                break
-              }
-              case 'message_end':
-                updated.status = 'COMPLETED'
-                break
-              case 'error': {
-                const err = event.data as SseError
-                if (!err.recoverable) {
-                  updated.content = updated.content || `错误: ${err.message}`
-                  updated.status = 'FAILED'
-                }
-                break
-              }
-            }
-            return updated
-          }),
-        )
-      }
-      setMessages((prev) =>
-        prev.map((m) => (m.id === regenId ? { ...m, status: 'COMPLETED' } : m)),
-      )
+      await consumeAssistantStream(stream, regenId)
     } catch (e) {
       setMessages((prev) =>
         prev.map((m) =>
@@ -717,6 +1110,82 @@ const ChatPage: React.FC = () => {
             : m,
         ),
       )
+    } finally {
+      setSending(false)
+    }
+  }
+
+  const handleAnswerQuestion = async (
+    question: QuestionCardState,
+    selectedOptionIds?: string[],
+    answerText?: string,
+  ) => {
+    if (!activeSessionId || sending) return
+    if (!question.sessionStateId) {
+      alert('该问题缺少恢复状态，请刷新会话后重试')
+      return
+    }
+
+    const owner = messages.find((message) =>
+      message.questions?.some((item) => item.questionId === question.questionId),
+    )
+    if (!owner) return
+
+    setSending(true)
+    setMessages((prev) =>
+      prev.map((message) => ({
+        ...message,
+        questions: message.questions?.map((item) =>
+          item.questionId === question.questionId
+            ? {
+                ...item,
+                status: 'answering',
+                selectedOptionIds: selectedOptionIds ?? [],
+                answerText,
+              }
+            : item,
+        ),
+      })),
+    )
+
+    try {
+      const { stream } = answerQuestion(activeSessionId, question.sessionStateId, {
+        questionId: question.questionId,
+        selectedOptionIds,
+        answerText,
+      })
+      await consumeAssistantStream(stream, owner.id)
+      setMessages((prev) =>
+        prev.map((message) => ({
+          ...message,
+          questions: message.questions?.map((item) =>
+            item.questionId === question.questionId
+              ? {
+                  ...item,
+                  status: 'answered',
+                  selectedOptionIds: selectedOptionIds ?? [],
+                  answerText,
+                }
+              : item,
+          ),
+        })),
+      )
+    } catch (e) {
+      setMessages((prev) =>
+        prev.map((message) => {
+          const ownsQuestion = message.questions?.some((item) => item.questionId === question.questionId)
+          if (!ownsQuestion) return message
+          return {
+            ...message,
+            content: message.content || `提交回答失败: ${e instanceof Error ? e.message : '未知错误'}`,
+            questions: message.questions?.map((item) =>
+              item.questionId === question.questionId ? { ...item, status: 'pending' } : item,
+            ),
+            status: 'FAILED',
+          }
+        }),
+      )
+      setPendingQuestion(question)
     } finally {
       setSending(false)
     }
@@ -915,7 +1384,8 @@ const ChatPage: React.FC = () => {
                   key={msg.id}
                   {...msg}
                   isLastAssistant={idx === lastAsstIdx}
-                  onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg.id) : undefined}
+                  onRegenerate={msg.role === 'assistant' ? () => handleRegenerate(msg.backendId ?? msg.id) : undefined}
+                  onAnswerQuestion={handleAnswerQuestion}
                 />
               ))
             })()}
@@ -1031,6 +1501,23 @@ const ChatPage: React.FC = () => {
             )}
           </div>
 
+          {activeTodo && <TodoPanel todo={activeTodo} />}
+
+          {pendingQuestion && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <HelpCircle className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-semibold text-text-primary">等待用户选择</span>
+              </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                <p className="text-xs font-semibold text-text-primary">{pendingQuestion.question}</p>
+                <p className="mt-1 text-[11px] text-text-tertiary">
+                  请在对话区的问题卡片中选择答案，Agent 会继续执行。
+                </p>
+              </div>
+            </div>
+          )}
+
           {(() => {
             const allToolCalls = messages.flatMap((m) => m.toolCallDetails ?? [])
             if (allToolCalls.length === 0) return null
@@ -1047,6 +1534,8 @@ const ChatPage: React.FC = () => {
                         <Loader2 className="w-3 h-3 text-brand-500 animate-spin shrink-0" />
                       ) : tc.status === 'success' ? (
                         <CheckCircle className="w-3 h-3 text-green-500 shrink-0" />
+                      ) : tc.status === 'requires_action' ? (
+                        <HelpCircle className="w-3 h-3 text-amber-500 shrink-0" />
                       ) : (
                         <XCircle className="w-3 h-3 text-red-500 shrink-0" />
                       )}

@@ -5,6 +5,7 @@ import com.agentplatform.asset.mapper.McpMapper;
 import com.agentplatform.common.core.enums.SourceType;
 import com.agentplatform.common.core.error.BizException;
 import com.agentplatform.common.core.error.ErrorCode;
+import com.agentplatform.common.core.tool.BuiltinUiTools;
 import com.agentplatform.common.core.tool.ToolDefinition;
 import com.agentplatform.common.core.tool.ToolRegistry;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -55,6 +56,8 @@ public class ToolRegistryImpl implements ToolRegistry {
                 null,
                 "Read content from a file",
                 jsonSchema(fileReadSchema())));
+        registerBuiltinTool(BuiltinUiTools.questionDefinition(jsonSchema(BuiltinUiTools.questionSchema())));
+        registerBuiltinTool(BuiltinUiTools.todoDefinition(jsonSchema(BuiltinUiTools.todoSchema())));
         log.info("Registered {} builtin tools", tools.size());
     }
 

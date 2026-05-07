@@ -121,4 +121,13 @@ public class ChatController {
                                         @CurrentUser UserPrincipal user) {
         return chatOrchestrator.handleContinue(id, request.getSessionStateId(), user.id());
     }
+
+    @PostMapping(value = "/sessions/{sessionId}/questions/{sessionStateId}/answer",
+            produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    public SseEmitter answerQuestion(@PathVariable UUID sessionId,
+                                     @PathVariable UUID sessionStateId,
+                                     @Valid @RequestBody QuestionAnswerRequest request,
+                                     @CurrentUser UserPrincipal user) {
+        return chatOrchestrator.handleQuestionAnswer(sessionId, sessionStateId, request, user.id());
+    }
 }

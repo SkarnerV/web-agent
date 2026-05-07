@@ -4,12 +4,14 @@ import com.agentplatform.chat.dto.SendMessageRequest;
 import com.agentplatform.chat.entity.ChatMessageEntity;
 import com.agentplatform.chat.entity.ChatSessionEntity;
 import com.agentplatform.chat.llm.DefaultLlmStreamService;
+import com.agentplatform.chat.llm.LlmToolSpecFactory;
 import com.agentplatform.chat.llm.LlmStreamService;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
 import com.agentplatform.chat.mapper.ChatSessionStateMapper;
 import com.agentplatform.chat.service.ChatSessionService;
 import com.agentplatform.chat.sse.IdempotencyService;
 import com.agentplatform.chat.sse.SseEventCacheService;
+import com.agentplatform.chat.tool.BuiltinToolExecutor;
 import com.agentplatform.chat.tool.ToolDispatcher;
 import com.agentplatform.common.core.agent.AgentConfigProvider;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -57,7 +59,9 @@ class ChatOrchestratorTest {
         llmStreamService = new DefaultLlmStreamService();
         orchestrator = new ChatOrchestrator(
                 sessionService, messageMapper, sessionStateMapper,
-                llmStreamService, toolDispatcher, objectMapper,
+                llmStreamService, toolDispatcher,
+                new BuiltinToolExecutor(objectMapper), new LlmToolSpecFactory(objectMapper),
+                objectMapper,
                 Optional.of(agentConfigProvider), Optional.of(idempotencyService), Optional.of(sseEventCacheService));
     }
 

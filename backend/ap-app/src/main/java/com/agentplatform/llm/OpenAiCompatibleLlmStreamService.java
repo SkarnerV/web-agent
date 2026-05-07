@@ -174,6 +174,18 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("role", msg.role());
             m.put("content", msg.content());
+            if ("assistant".equals(msg.role()) && msg.toolCalls() != null && !msg.toolCalls().isEmpty()) {
+                List<Map<String, Object>> toolCalls = new ArrayList<>();
+                for (LlmMessage.LlmToolCall toolCall : msg.toolCalls()) {
+                    toolCalls.add(Map.of(
+                            "id", toolCall.id(),
+                            "type", "function",
+                            "function", Map.of(
+                                    "name", toolCall.name(),
+                                    "arguments", toolCall.arguments() != null ? toolCall.arguments() : "{}")));
+                }
+                m.put("tool_calls", toolCalls);
+            }
             if ("tool".equals(msg.role()) && msg.toolResult() != null) {
                 m.put("tool_call_id", msg.toolResult().get("tool_call_id"));
             }
@@ -195,6 +207,7 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
 
         private final BufferedReader reader;
         private final Queue<LlmChunk> buffer = new ArrayDeque<>();
+        private final Map<Integer, ToolCallAccumulator> pendingToolCalls = new LinkedHashMap<>();
         private boolean done = false;
         private int promptTokens = 0;
         private int completionTokens = 0;
@@ -274,13 +287,18 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
                 if (delta.has("tool_calls")) {
                     JsonNode toolCalls = delta.get("tool_calls");
                     for (JsonNode tc : toolCalls) {
+                        int index = tc.has("index") ? tc.get("index").asInt() : pendingToolCalls.size();
+                        ToolCallAccumulator acc = pendingToolCalls.computeIfAbsent(index, k -> new ToolCallAccumulator());
+                        if (tc.has("id") && !tc.get("id").isNull()) {
+                            acc.id = tc.get("id").asText();
+                        }
                         JsonNode fn = tc.get("function");
-                        if (fn != null && fn.has("name") && fn.has("arguments")) {
-                            String toolCallId = tc.has("id") ? tc.get("id").asText() : "";
-                            String name = fn.get("name").asText();
-                            String args = fn.get("arguments").asText();
-                            if (!name.isEmpty() && !args.isEmpty()) {
-                                buffer.add(new LlmChunk.ToolCallChunk(toolCallId, name, args));
+                        if (fn != null) {
+                            if (fn.has("name") && !fn.get("name").isNull()) {
+                                acc.name = fn.get("name").asText();
+                            }
+                            if (fn.has("arguments") && !fn.get("arguments").isNull()) {
+                                acc.arguments.append(fn.get("arguments").asText());
                             }
                         }
                     }
@@ -293,6 +311,9 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
                         promptTokens = usage.path("prompt_tokens").asInt(0);
                         completionTokens = usage.path("completion_tokens").asInt(0);
                     }
+                    if ("tool_calls".equals(finishReason)) {
+                        flushPendingToolCalls();
+                    }
                     finishStream(finishReason);
                 }
             } catch (Exception e) {
@@ -300,12 +321,33 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
             }
         }
 
+        private void flushPendingToolCalls() {
+            for (ToolCallAccumulator acc : pendingToolCalls.values()) {
+                if (acc.name != null && !acc.name.isBlank()) {
+                    buffer.add(new LlmChunk.ToolCallChunk(
+                            acc.id != null ? acc.id : "",
+                            acc.name,
+                            acc.arguments.isEmpty() ? "{}" : acc.arguments.toString()));
+                }
+            }
+            pendingToolCalls.clear();
+        }
+
         private void finishStream(String reason) {
             if (!done) {
+                if (!pendingToolCalls.isEmpty()) {
+                    flushPendingToolCalls();
+                }
                 buffer.add(new LlmChunk.FinishChunk(reason, promptTokens, completionTokens));
                 done = true;
                 try { reader.close(); } catch (Exception ignored) {}
             }
+        }
+
+        private class ToolCallAccumulator {
+            private String id;
+            private String name;
+            private final StringBuilder arguments = new StringBuilder();
         }
     }
 }
