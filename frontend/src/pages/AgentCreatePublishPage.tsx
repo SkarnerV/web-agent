@@ -216,14 +216,6 @@ const AgentCreatePublishPage: React.FC = () => {
           <span className="text-[13px]">返回</span>
         </button>
         <span className="text-[15px] font-semibold text-text-primary flex-1">创建智能体</span>
-        <div className="flex items-center gap-2">
-          <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
-            保存草稿
-          </Button>
-          <Button variant="primary" onClick={handlePublish} disabled={saving}>
-            {saving ? '发布中...' : '发布'}
-          </Button>
-        </div>
       </div>
 
       <div className="flex-1 flex gap-5 p-8 overflow-auto">

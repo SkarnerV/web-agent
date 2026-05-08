@@ -1,5 +1,5 @@
 import React from 'react'
-import { Bot, Wand2, Plug, BookOpen, Wrench, Users } from 'lucide-react'
+import { Bot, Wand2, Plug, BookOpen, Wrench, Users, Eye } from 'lucide-react'
 import { Badge } from './Badge'
 import { Button } from './Button'
 
@@ -29,6 +29,7 @@ export interface AssetCardProps {
   toolCount?: number
   collabCount?: number
   updatedAt?: string
+  detailHref?: string
   onUse?: () => void
   onEdit?: () => void
   onDelete?: () => void
@@ -52,6 +53,7 @@ export const AssetCard: React.FC<AssetCardProps> = ({
   toolCount = 0,
   collabCount = 0,
   updatedAt = '2d 前',
+  detailHref,
   onUse,
   onEdit,
   onDelete,
@@ -100,6 +102,15 @@ export const AssetCard: React.FC<AssetCardProps> = ({
 
       {/* Actions */}
       <div className="flex flex-wrap gap-2">
+        {detailHref && (
+          <a
+            href={detailHref}
+            className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium bg-white text-text-primary border border-border-strong hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+          >
+            <Eye className="w-3.5 h-3.5" />
+            查看
+          </a>
+        )}
         <Button variant="primary" onClick={onUse}>使用</Button>
         <Button variant="secondary" onClick={onEdit}>编辑</Button>
         {onDelete && (

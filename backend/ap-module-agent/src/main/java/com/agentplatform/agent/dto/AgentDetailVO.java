@@ -44,4 +44,6 @@ public class AgentDetailVO {
     private List<UUID> skillIds;
 
     private List<UUID> knowledgeBaseIds;
+
+    private List<UUID> collaboratorAgentIds;
 }

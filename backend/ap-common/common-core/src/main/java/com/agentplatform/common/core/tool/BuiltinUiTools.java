@@ -30,7 +30,7 @@ public final class BuiltinUiTools {
                 QUESTION,
                 SourceType.BUILTIN,
                 null,
-                "Ask the user a multiple-choice question and pause the agent run until the user answers.",
+                "Ask the user one question and pause the agent run until the user answers.",
                 parametersJson);
     }
 
@@ -53,7 +53,8 @@ public final class BuiltinUiTools {
                                 "description", "The question shown to the user"),
                         "options", Map.of(
                                 "type", "array",
-                                "minItems", 1,
+                                "description", "Answer options. Use an empty array for open-ended questions when allow_free_text is true.",
+                                "minItems", 0,
                                 "maxItems", 6,
                                 "items", Map.of(
                                         "type", "object",
@@ -68,7 +69,7 @@ public final class BuiltinUiTools {
                         "multi_select", Map.of(
                                 "type", "boolean",
                                 "default", false)),
-                "required", List.of("question", "options"));
+                "required", List.of("question"));
     }
 
     public static Map<String, Object> todoSchema() {

@@ -7,9 +7,8 @@ import com.agentplatform.market.entity.MarketItemEntity;
 import com.agentplatform.market.entity.ReviewEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingConstants;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+@Mapper
 public interface MarketConverter {
 
     @Mapping(target = "authorName", ignore = true)

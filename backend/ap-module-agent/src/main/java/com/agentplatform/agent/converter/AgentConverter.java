@@ -13,14 +13,14 @@ import com.agentplatform.agent.entity.CustomModelEntity;
 import com.agentplatform.common.mybatis.entity.AgentToolBindingEntity;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingConstants;
 
-@Mapper(componentModel = MappingConstants.ComponentModel.SPRING)
+@Mapper
 public interface AgentConverter {
 
     @Mapping(target = "toolBindings", ignore = true)
     @Mapping(target = "skillIds", ignore = true)
     @Mapping(target = "knowledgeBaseIds", ignore = true)
+    @Mapping(target = "collaboratorAgentIds", ignore = true)
     AgentDetailVO toDetailVO(AgentEntity entity);
 
     AgentSummaryVO toSummaryVO(AgentEntity entity);

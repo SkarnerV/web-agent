@@ -55,6 +55,12 @@ public class ChatOrchestrator {
     private static final int DEFAULT_MAX_STEPS = 10;
 
     private static final String DEFAULT_MODEL_ID = "gpt-4o";
+    private static final String BUILTIN_UI_TOOL_INSTRUCTIONS = """
+            Runtime tool instructions:
+            - When you need the user's answer before continuing, call the `question` tool instead of writing the question as assistant text.
+            - For open-ended questions, call `question` with allow_free_text=true and options=[].
+            - If the user asks you to ask multiple questions, call `question` for exactly one question, wait for the tool result, then continue with the next question until the requested count is complete.
+            """;
 
     private final ChatSessionService sessionService;
     private final ChatMessageMapper messageMapper;
@@ -309,11 +315,13 @@ public class ChatOrchestrator {
                 Iterator<LlmChunk> stream = llmStreamService.stream(modelId, context, tools);
                 List<LlmChunk.ToolCallChunk> stepToolCalls = new ArrayList<>();
                 StringBuilder assistantStepContent = new StringBuilder();
+                StringBuilder assistantStepReasoning = new StringBuilder();
 
                 while (stream.hasNext()) {
                     LlmChunk chunk = stream.next();
 
                     switch (chunk) {
+                        case LlmChunk.ReasoningChunk rc -> assistantStepReasoning.append(rc.delta());
                         case LlmChunk.TokenChunk tc -> {
                             fullContent.append(tc.delta());
                             assistantStepContent.append(tc.delta());
@@ -355,7 +363,8 @@ public class ChatOrchestrator {
                         assistantStepContent.toString().isBlank() ? null : assistantStepContent.toString(),
                         normalizedToolCalls.stream()
                                 .map(t -> new LlmToolCall(t.toolCallId(), t.toolName(), t.arguments()))
-                                .toList()));
+                                .toList(),
+                        assistantStepReasoning.toString().isBlank() ? null : assistantStepReasoning.toString()));
 
                 for (LlmChunk.ToolCallChunk tcc : normalizedToolCalls) {
                     String toolCallId = tcc.toolCallId();
@@ -486,10 +495,10 @@ public class ChatOrchestrator {
         String systemPrompt = agentConfigProvider
                 .map(p -> p.getSystemPrompt(session.getCurrentAgentId()))
                 .orElse(null);
-        context.add(LlmMessage.system(
+        context.add(LlmMessage.system(withBuiltinUiToolInstructions(
                 systemPrompt != null && !systemPrompt.isBlank()
                         ? systemPrompt
-                        : "You are a helpful AI assistant."));
+                        : "You are a helpful AI assistant.")));
 
         // Load message history, respecting separator boundaries
         List<ChatMessageEntity> history = loadRelevantHistory(session.getId());
@@ -503,6 +512,10 @@ public class ChatOrchestrator {
         }
 
         return context;
+    }
+
+    private String withBuiltinUiToolInstructions(String systemPrompt) {
+        return systemPrompt + "\n\n" + BUILTIN_UI_TOOL_INSTRUCTIONS;
     }
 
     private List<ChatMessageEntity> loadRelevantHistory(UUID sessionId) {

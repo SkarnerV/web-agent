@@ -130,6 +130,7 @@ public class AgentService {
                         .eq(AssetReferenceEntity::getReferrerId, agentId));
         vo.setSkillIds(filterRefIds(refs, "skill"));
         vo.setKnowledgeBaseIds(filterRefIds(refs, "knowledge"));
+        vo.setCollaboratorAgentIds(filterRefIds(refs, "collaborator"));
 
         return vo;
     }

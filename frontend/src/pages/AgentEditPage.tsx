@@ -1,16 +1,57 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { ChevronLeft, Check, Bot, Sparkles, Zap, MessageSquare, X } from 'lucide-react'
+import {
+  BookOpen,
+  Bot,
+  Calendar,
+  ChevronLeft,
+  Code,
+  Database,
+  FileText,
+  Globe,
+  Mail,
+  MessageSquare,
+  Plug,
+  Plus,
+  Sparkles,
+  Trash2,
+  Users,
+  Wand,
+  Wrench,
+  X,
+  Zap,
+} from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
-import { getAgent, updateAgent, deleteAgent } from '../api/agent'
+import { getAgent, updateAgent, deleteAgent, listAgents } from '../api/agent'
 import { publishAsset } from '../api/market'
 import { listAllModels } from '../api/model'
+import { listSkills } from '../api/skill'
+import { listMcps } from '../api/mcp'
+import { listKnowledgeBases } from '../api/knowledge'
 import { ApiError } from '../api/client'
-import type { ModelInfo } from '../api/types'
+import type {
+  AgentSummaryVO,
+  AgentUpdateRequest,
+  KnowledgeBaseSummaryVO,
+  McpSummaryVO,
+  ModelInfo,
+  SkillSummaryVO,
+  ToolBindingRequest,
+  ToolBindingVO,
+} from '../api/types'
 
-type StepType = 1 | 2 | 3 | 4
+type BindingType = 'builtin' | 'skill' | 'mcp' | 'kb' | 'collaborator'
+
+interface BindingItem {
+  id: string
+  name: string
+  description?: string
+  type: BindingType
+  sourceId?: string
+  toolName?: string
+}
 
 const iconOptions = [
   { id: 'bot', icon: Bot, bg: 'bg-brand-50', color: 'text-brand-500' },
@@ -19,54 +60,88 @@ const iconOptions = [
   { id: 'message', icon: MessageSquare, bg: 'bg-error-50', color: 'text-error-500' },
 ]
 
-const StepsColumn: React.FC<{ activeStep: StepType }> = ({ activeStep }) => {
-  const steps = [
-    { step: 1, label: '基本信息' },
-    { step: 2, label: '工具配置' },
-    { step: 3, label: '协作智能体' },
-    { step: 4, label: '调试发布' },
-  ]
+const builtinTools: BindingItem[] = [
+  { id: 'web_search', name: 'web_search', description: '搜索互联网获取最新信息', type: 'builtin' },
+  { id: 'ask_question', name: 'ask_question', description: '向用户提问以获取更多信息', type: 'builtin' },
+  { id: 'read_file', name: 'read_file', description: '读取文件内容', type: 'builtin' },
+  { id: 'write_file', name: 'write_file', description: '创建或更新文件', type: 'builtin' },
+  { id: 'execute_code', name: 'execute_code', description: '在沙箱环境中执行代码', type: 'builtin' },
+  { id: 'database_query', name: 'database_query', description: '查询数据库获取结构化数据', type: 'builtin' },
+  { id: 'send_email', name: 'send_email', description: '发送电子邮件', type: 'builtin' },
+  { id: 'calendar', name: 'calendar', description: '管理日程和提醒', type: 'builtin' },
+]
 
-  return (
-    <div className="w-[240px] p-6 bg-white border border-border-subtle rounded-lg flex flex-col gap-2 flex-shrink-0">
-      <span className="text-[11px] font-semibold text-text-tertiary">配置步骤</span>
-      {steps.map((s) => (
-        <div
-          key={s.step}
-          className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg transition-colors ${
-            activeStep === s.step ? 'bg-brand-50' : 'bg-transparent'
-          }`}
-        >
-          <div
-            className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
-              activeStep === s.step
-                ? 'bg-brand-500 text-white'
-                : 'bg-gray-100 text-text-tertiary'
-            }`}
-          >
-            {activeStep === s.step ? (
-              <Check className="w-3 h-3" />
-            ) : (
-              <span className="text-xs font-semibold">{s.step}</span>
-            )}
-          </div>
-          <span
-            className={`text-[13px] ${
-              activeStep === s.step
-                ? 'font-semibold text-brand-500'
-                : 'text-text-secondary'
-            }`}
-          >
-            {s.label}
-          </span>
-        </div>
-      ))}
-      <div className="mt-2 px-3 py-4 flex flex-col gap-1">
-        <span className="text-[11px] text-text-tertiary">自动保存</span>
-        <span className="text-[11px] font-medium text-success-500">刚刚</span>
-      </div>
-    </div>
-  )
+const emptySelects: Record<BindingType, string> = {
+  builtin: '',
+  skill: '',
+  mcp: '',
+  kb: '',
+  collaborator: '',
+}
+
+const bindingIcon: Record<BindingType, React.FC<{ className?: string }>> = {
+  builtin: Wrench,
+  skill: Wand,
+  mcp: Plug,
+  kb: BookOpen,
+  collaborator: Users,
+}
+
+const builtinIcon: Record<string, React.FC<{ className?: string }>> = {
+  web_search: Globe,
+  ask_question: Wand,
+  read_file: FileText,
+  write_file: FileText,
+  execute_code: Code,
+  database_query: Database,
+  send_email: Mail,
+  calendar: Calendar,
+}
+
+const iconStyle: Record<BindingType, { bg: string; color: string }> = {
+  builtin: { bg: 'bg-brand-50', color: 'text-brand-500' },
+  skill: { bg: 'bg-purple-50', color: 'text-purple-500' },
+  mcp: { bg: 'bg-success-50', color: 'text-success-500' },
+  kb: { bg: 'bg-warning-50', color: 'text-warning-500' },
+  collaborator: { bg: 'bg-gray-100', color: 'text-gray-600' },
+}
+
+function formatBytes(bytes: number): string {
+  if (!bytes) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
+}
+
+function catalogFallback(id: string, type: BindingType): BindingItem {
+  return { id, name: id, type }
+}
+
+function selectedToolBinding(binding: ToolBindingVO, mcpCatalog: BindingItem[]): BindingItem | null {
+  if (binding.sourceType === 'builtin') {
+    const builtin = builtinTools.find((tool) => tool.id === binding.toolName)
+    return {
+      ...(builtin ?? catalogFallback(binding.toolName, 'builtin')),
+      toolName: binding.toolName,
+    }
+  }
+
+  if (binding.sourceType === 'mcp') {
+    const match = binding.sourceId
+      ? mcpCatalog.find((item) => item.id === binding.sourceId)
+      : undefined
+    return {
+      id: binding.sourceId || binding.id,
+      name: match?.name ?? binding.toolName,
+      description: match?.description,
+      type: 'mcp',
+      sourceId: binding.sourceId,
+      toolName: binding.toolName,
+    }
+  }
+
+  return null
 }
 
 const PublishDialog: React.FC<{
@@ -148,10 +223,116 @@ const PublishDialog: React.FC<{
   )
 }
 
+const ConfigSection: React.FC<{
+  title: string
+  description: string
+  type: BindingType
+  items: BindingItem[]
+  options: BindingItem[]
+  selectedId: string
+  onSelectedChange: (id: string) => void
+  onAdd: () => void
+  onRemove: (item: BindingItem) => void
+}> = ({
+  title,
+  description,
+  type,
+  items,
+  options,
+  selectedId,
+  onSelectedChange,
+  onAdd,
+  onRemove,
+}) => {
+  const SectionIcon = bindingIcon[type]
+  const remainingOptions = options.filter(
+    (option) => !items.some((item) => item.id === option.id),
+  )
+  const style = iconStyle[type]
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center gap-2">
+        <SectionIcon className="w-4 h-4 text-text-secondary" />
+        <div className="flex flex-col gap-0.5">
+          <h3 className="text-sm font-semibold text-text-primary">{title}</h3>
+          <p className="text-xs text-text-tertiary">{description}</p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        {items.length === 0 && (
+          <p className="px-4 py-3 bg-gray-50 rounded-lg text-[13px] text-text-tertiary">
+            暂无已配置项
+          </p>
+        )}
+        {items.map((item) => {
+          const ItemIcon = type === 'builtin' ? (builtinIcon[item.id] ?? Wrench) : SectionIcon
+          return (
+            <div
+              key={`${item.type}:${item.id}`}
+              className="flex items-center gap-3 p-3 bg-white border border-border-subtle rounded-lg group"
+            >
+              <div className={`w-9 h-9 rounded-lg ${style.bg} flex items-center justify-center flex-shrink-0`}>
+                <ItemIcon className={`w-4.5 h-4.5 ${style.color}`} />
+              </div>
+              <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+                <span className="text-[13px] font-semibold text-text-primary truncate">{item.name}</span>
+                {item.description && (
+                  <span className="text-[11px] text-text-tertiary truncate">{item.description}</span>
+                )}
+              </div>
+              <button
+                onClick={() => onRemove(item)}
+                className="w-7 h-7 rounded-md flex items-center justify-center text-text-tertiary hover:text-error-500 hover:bg-error-50 opacity-0 group-hover:opacity-100 transition-all"
+                aria-label={`删除${item.name}`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <select
+          value={selectedId}
+          onChange={(e) => onSelectedChange(e.target.value)}
+          className="flex-1 px-3 py-2.5 bg-white border border-border-strong rounded-md text-sm text-text-primary outline-none focus:border-brand-500"
+        >
+          <option value="">选择要添加的项</option>
+          {remainingOptions.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <Button
+          variant="secondary"
+          icon={<Plus className="w-4 h-4" />}
+          onClick={onAdd}
+          disabled={!selectedId}
+        >
+          添加
+        </Button>
+      </div>
+    </section>
+  )
+}
+
 const AgentEditPage: React.FC = () => {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
   const [models, setModels] = useState<ModelInfo[]>([])
+  const [catalog, setCatalog] = useState<Record<BindingType, BindingItem[]>>({
+    builtin: builtinTools,
+    skill: [],
+    mcp: [],
+    kb: [],
+    collaborator: [],
+  })
+  const [bindings, setBindings] = useState<BindingItem[]>([])
+  const [selectedToAdd, setSelectedToAdd] = useState<Record<BindingType, string>>(emptySelects)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -171,7 +352,51 @@ const AgentEditPage: React.FC = () => {
     if (!id) return
     ;(async () => {
       try {
-        const [agent, allModels] = await Promise.all([getAgent(id), listAllModels()])
+        const [agent, allModels, skillsRes, mcpsRes, kbsRes, agentsRes] = await Promise.all([
+          getAgent(id),
+          listAllModels(),
+          listSkills({ page: 1, page_size: 100 }).catch(() => ({ data: [] as SkillSummaryVO[] })),
+          listMcps({ page: 1, page_size: 100 }).catch(() => ({ data: [] as McpSummaryVO[] })),
+          listKnowledgeBases({ page: 1, page_size: 100 }).catch(() => ({ data: [] as KnowledgeBaseSummaryVO[] })),
+          listAgents({ page: 1, page_size: 100 }).catch(() => ({ data: [] as AgentSummaryVO[] })),
+        ])
+
+        const skillCatalog = skillsRes.data.map((skill) => ({
+          id: skill.id,
+          name: skill.name,
+          description: skill.description,
+          type: 'skill' as const,
+        }))
+        const mcpCatalog = mcpsRes.data.map((mcp) => ({
+          id: mcp.id,
+          name: mcp.name,
+          description: mcp.toolsDiscoveredCount != null ? `${mcp.toolsDiscoveredCount} 个工具` : mcp.url,
+          type: 'mcp' as const,
+          sourceId: mcp.id,
+        }))
+        const kbCatalog = kbsRes.data.map((kb) => ({
+          id: kb.id,
+          name: kb.name,
+          description: `${kb.docCount} 文档 · ${formatBytes(kb.totalSizeBytes)}`,
+          type: 'kb' as const,
+        }))
+        const collaboratorCatalog = agentsRes.data
+          .filter((agentItem) => agentItem.id !== id)
+          .map((agentItem) => ({
+            id: agentItem.id,
+            name: agentItem.name,
+            description: agentItem.description,
+            type: 'collaborator' as const,
+          }))
+
+        setCatalog({
+          builtin: builtinTools,
+          skill: skillCatalog,
+          mcp: mcpCatalog,
+          kb: kbCatalog,
+          collaborator: collaboratorCatalog,
+        })
+
         const enabled = allModels.filter((m) => m.enabled)
         setModels(enabled)
         const defaultModel = enabled.find((m) => m.isDefault) ?? enabled[0]
@@ -184,6 +409,23 @@ const AgentEditPage: React.FC = () => {
           prompt: agent.systemPrompt ?? '',
           version: agent.version,
         })
+
+        const selectedBindings: BindingItem[] = [
+          ...(agent.toolBindings ?? [])
+            .map((binding) => selectedToolBinding(binding, mcpCatalog))
+            .filter((binding): binding is BindingItem => binding !== null),
+          ...(agent.skillIds ?? []).map((skillId) =>
+            skillCatalog.find((skill) => skill.id === skillId) ?? catalogFallback(skillId, 'skill'),
+          ),
+          ...(agent.knowledgeBaseIds ?? []).map((kbId) =>
+            kbCatalog.find((kb) => kb.id === kbId) ?? catalogFallback(kbId, 'kb'),
+          ),
+          ...((agent.collaboratorAgentIds ?? []) as string[]).map((agentId) =>
+            collaboratorCatalog.find((collaborator) => collaborator.id === agentId) ??
+            catalogFallback(agentId, 'collaborator'),
+          ),
+        ]
+        setBindings(selectedBindings)
       } catch (e) {
         setError(e instanceof ApiError ? e.message : 'Failed to load agent')
       } finally {
@@ -192,20 +434,67 @@ const AgentEditPage: React.FC = () => {
     })()
   }, [id])
 
+  const itemsOfType = (type: BindingType) => bindings.filter((item) => item.type === type)
+
+  const handleAddBinding = (type: BindingType) => {
+    const selectedId = selectedToAdd[type]
+    if (!selectedId) return
+    const item = catalog[type].find((option) => option.id === selectedId)
+    if (!item) return
+
+    setBindings((prev) =>
+      prev.some((existing) => existing.type === type && existing.id === item.id)
+        ? prev
+        : [...prev, item],
+    )
+    setSelectedToAdd((prev) => ({ ...prev, [type]: '' }))
+  }
+
+  const handleRemoveBinding = (item: BindingItem) => {
+    setBindings((prev) =>
+      prev.filter((existing) => !(existing.type === item.type && existing.id === item.id)),
+    )
+  }
+
+  const buildToolBindings = (): ToolBindingRequest[] =>
+    bindings
+      .filter((item) => item.type === 'builtin' || item.type === 'mcp')
+      .map((item) => {
+        if (item.type === 'builtin') {
+          return {
+            sourceType: 'builtin',
+            toolName: item.toolName ?? item.name,
+            enabled: true,
+          }
+        }
+        return {
+          sourceType: 'mcp',
+          sourceId: item.sourceId,
+          toolName: item.toolName ?? item.name,
+          enabled: true,
+        }
+      })
+
+  const buildUpdateRequest = (): AgentUpdateRequest => ({
+    name: formData.name.trim(),
+    description: formData.description.trim() || undefined,
+    avatar: formData.icon,
+    modelId: formData.model || undefined,
+    systemPrompt: formData.prompt.trim() || undefined,
+    maxSteps: formData.maxSteps,
+    version: formData.version,
+    toolBindings: buildToolBindings(),
+    skillIds: itemsOfType('skill').map((item) => item.id),
+    knowledgeBaseIds: itemsOfType('kb').map((item) => item.id),
+    collaboratorAgentIds: itemsOfType('collaborator').map((item) => item.id),
+  })
+
   const handleSave = async () => {
     if (!id || !formData.name.trim()) return
     setSaving(true)
     setError(null)
     try {
-      await updateAgent(id, {
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        avatar: formData.icon,
-        modelId: formData.model || undefined,
-        systemPrompt: formData.prompt.trim() || undefined,
-        maxSteps: formData.maxSteps,
-        version: formData.version,
-      })
+      await updateAgent(id, buildUpdateRequest())
       navigate('/agents')
     } catch (e) {
       setError(e instanceof ApiError ? e.message : '保存失败，请重试')
@@ -219,15 +508,7 @@ const AgentEditPage: React.FC = () => {
     setPublishing(true)
     setError(null)
     try {
-      await updateAgent(id, {
-        name: formData.name.trim(),
-        description: formData.description.trim() || undefined,
-        avatar: formData.icon,
-        modelId: formData.model || undefined,
-        systemPrompt: formData.prompt.trim() || undefined,
-        maxSteps: formData.maxSteps,
-        version: formData.version,
-      })
+      await updateAgent(id, buildUpdateRequest())
       await publishAsset({
         assetType: 'AGENT',
         assetId: id,
@@ -278,7 +559,6 @@ const AgentEditPage: React.FC = () => {
 
   return (
     <Layout breadcrumb={[{ label: '我的资产' }, { label: '智能体' }, { label: '编辑' }]}>
-      {/* TopBar */}
       <div className="h-14 bg-white border-b border-border-subtle flex items-center gap-3 px-6">
         <button
           onClick={() => navigate('/agents')}
@@ -297,25 +577,22 @@ const AgentEditPage: React.FC = () => {
           >
             删除
           </button>
-          <Button variant="secondary" onClick={handleSave} disabled={saving}>
-            {saving ? '保存中...' : '保存草稿'}
-          </Button>
-          <Button variant="primary" onClick={() => setShowPublishDialog(true)} disabled={saving}>
+          <Button
+            variant="primary"
+            onClick={() => setShowPublishDialog(true)}
+            disabled={saving || publishing || !formData.name.trim()}
+          >
             发布
           </Button>
         </div>
       </div>
 
-      {/* Body */}
-      <div className="flex-1 flex gap-5 p-8 overflow-auto">
-        <StepsColumn activeStep={1} />
-
-        <div className="flex-1 overflow-auto">
-          <div className="p-8 bg-white rounded-xl border border-border-subtle flex flex-col gap-5">
-            {/* Form Header */}
+      <div className="flex-1 p-8 overflow-auto">
+        <div className="max-w-[1040px]">
+          <div className="p-8 bg-white rounded-xl border border-border-subtle flex flex-col gap-6">
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-bold text-text-primary">基本信息</h2>
-              <p className="text-[13px] text-text-tertiary">设置智能体的基础身份和行为</p>
+              <p className="text-[13px] text-text-tertiary">设置智能体的基础身份、工具能力和协作关系</p>
             </div>
 
             {error && (
@@ -324,7 +601,6 @@ const AgentEditPage: React.FC = () => {
               </div>
             )}
 
-            {/* Avatar Picker */}
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-medium text-text-primary">头像</label>
               <div className="flex items-center gap-3">
@@ -349,7 +625,6 @@ const AgentEditPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Name Field */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-1">
                 <label className="text-[13px] font-medium text-text-primary">名称</label>
@@ -362,7 +637,6 @@ const AgentEditPage: React.FC = () => {
               />
             </div>
 
-            {/* Description Field */}
             <div className="flex flex-col gap-2">
               <label className="text-[13px] font-medium text-text-primary">描述</label>
               <textarea
@@ -373,7 +647,6 @@ const AgentEditPage: React.FC = () => {
               />
             </div>
 
-            {/* Two-Column: Model + Step */}
             <div className="flex gap-4">
               <div className="flex-1 flex flex-col gap-2">
                 <label className="text-[13px] font-medium text-text-primary">模型</label>
@@ -400,7 +673,6 @@ const AgentEditPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Prompt Field */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <label className="text-[13px] font-medium text-text-primary">提示词</label>
@@ -414,13 +686,73 @@ const AgentEditPage: React.FC = () => {
               />
             </div>
 
-            {/* Bottom Row */}
+            <div className="h-px bg-border-subtle" />
+
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+              <ConfigSection
+                title="内置工具"
+                description="平台提供的通用工具能力"
+                type="builtin"
+                items={itemsOfType('builtin')}
+                options={catalog.builtin}
+                selectedId={selectedToAdd.builtin}
+                onSelectedChange={(value) => setSelectedToAdd((prev) => ({ ...prev, builtin: value }))}
+                onAdd={() => handleAddBinding('builtin')}
+                onRemove={handleRemoveBinding}
+              />
+              <ConfigSection
+                title="Skill"
+                description="可复用的办公任务能力"
+                type="skill"
+                items={itemsOfType('skill')}
+                options={catalog.skill}
+                selectedId={selectedToAdd.skill}
+                onSelectedChange={(value) => setSelectedToAdd((prev) => ({ ...prev, skill: value }))}
+                onAdd={() => handleAddBinding('skill')}
+                onRemove={handleRemoveBinding}
+              />
+              <ConfigSection
+                title="MCP 服务"
+                description="接入外部工具服务器"
+                type="mcp"
+                items={itemsOfType('mcp')}
+                options={catalog.mcp}
+                selectedId={selectedToAdd.mcp}
+                onSelectedChange={(value) => setSelectedToAdd((prev) => ({ ...prev, mcp: value }))}
+                onAdd={() => handleAddBinding('mcp')}
+                onRemove={handleRemoveBinding}
+              />
+              <ConfigSection
+                title="知识库"
+                description="让智能体检索指定知识内容"
+                type="kb"
+                items={itemsOfType('kb')}
+                options={catalog.kb}
+                selectedId={selectedToAdd.kb}
+                onSelectedChange={(value) => setSelectedToAdd((prev) => ({ ...prev, kb: value }))}
+                onAdd={() => handleAddBinding('kb')}
+                onRemove={handleRemoveBinding}
+              />
+            </div>
+
+            <ConfigSection
+              title="协作智能体"
+              description="配置可协作调用的其他智能体"
+              type="collaborator"
+              items={itemsOfType('collaborator')}
+              options={catalog.collaborator}
+              selectedId={selectedToAdd.collaborator}
+              onSelectedChange={(value) => setSelectedToAdd((prev) => ({ ...prev, collaborator: value }))}
+              onAdd={() => handleAddBinding('collaborator')}
+              onRemove={handleRemoveBinding}
+            />
+
             <div className="flex items-center justify-end gap-2 pt-4">
               <Button variant="secondary" onClick={() => navigate('/agents')}>
                 取消
               </Button>
-              <Button variant="primary" onClick={() => navigate(`/agents/tools`)}>
-                下一步
+              <Button variant="primary" onClick={handleSave} disabled={saving || !formData.name.trim()}>
+                {saving ? '保存中...' : '保存草稿'}
               </Button>
             </div>
           </div>

@@ -174,6 +174,11 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("role", msg.role());
             m.put("content", msg.content());
+            if ("assistant".equals(msg.role())
+                    && msg.reasoningContent() != null
+                    && !msg.reasoningContent().isBlank()) {
+                m.put("reasoning_content", msg.reasoningContent());
+            }
             if ("assistant".equals(msg.role()) && msg.toolCalls() != null && !msg.toolCalls().isEmpty()) {
                 List<Map<String, Object>> toolCalls = new ArrayList<>();
                 for (LlmMessage.LlmToolCall toolCall : msg.toolCalls()) {
@@ -280,6 +285,13 @@ public class OpenAiCompatibleLlmStreamService implements LlmStreamService {
                     String content = delta.get("content").asText();
                     if (!content.isEmpty()) {
                         buffer.add(new LlmChunk.TokenChunk(content));
+                    }
+                }
+
+                if (delta.has("reasoning_content") && !delta.get("reasoning_content").isNull()) {
+                    String reasoningContent = delta.get("reasoning_content").asText();
+                    if (!reasoningContent.isEmpty()) {
+                        buffer.add(new LlmChunk.ReasoningChunk(reasoningContent));
                     }
                 }
 

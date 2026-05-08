@@ -77,11 +77,11 @@ public class AgentController {
     }
 
     @DeleteMapping("/{id}")
-    @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void delete(@PathVariable UUID id,
-                       @RequestParam(defaultValue = "false") boolean force,
-                       @CurrentUser UserPrincipal user) {
+    public ApiResponse<Void> delete(@PathVariable UUID id,
+                                    @RequestParam(defaultValue = "false") boolean force,
+                                    @CurrentUser UserPrincipal user) {
         agentService.delete(id, user.id(), force);
+        return ApiResponse.ok(null, RequestIdContext.current());
     }
 
     // ───────── 3.2 Duplicate ─────────

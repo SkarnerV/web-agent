@@ -51,6 +51,7 @@ export interface AgentDetailVO extends AgentSummaryVO {
   toolBindings: ToolBindingVO[]
   skillIds: string[]
   knowledgeBaseIds: string[]
+  collaboratorAgentIds: string[]
 }
 
 export interface ToolBindingRequest {

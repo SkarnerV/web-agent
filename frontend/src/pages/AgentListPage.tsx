@@ -291,6 +291,7 @@ const AgentListPage: React.FC = () => {
                   toolCount={0}
                   collabCount={0}
                   updatedAt={timeAgo(agent.updatedAt)}
+                  detailHref={`/agents/${agent.id}`}
                   onUse={() => handleUseAgent(agent.id)}
                   onEdit={() => handleEditAgent(agent.id)}
                   onDelete={() => handleDeleteAgent(agent.id, agent.name)}

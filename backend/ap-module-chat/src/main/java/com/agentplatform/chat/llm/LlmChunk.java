@@ -5,6 +5,8 @@ package com.agentplatform.chat.llm;
  */
 public sealed interface LlmChunk {
 
+    record ReasoningChunk(String delta) implements LlmChunk {}
+
     record TokenChunk(String delta) implements LlmChunk {}
 
     record ToolCallChunk(String toolCallId, String toolName, String arguments) implements LlmChunk {}

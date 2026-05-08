@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Heart, ArrowRight, Bot, Users, Star, Loader2 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
@@ -55,6 +55,7 @@ const VersionRow: React.FC<{ version: string; publishedAt: string; releaseNotes?
 
 const AgentDetailPage: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   const { id } = useParams<{ id: string }>()
   const [agent, setAgent] = useState<AgentDetailVO | null>(null)
   const [versions, setVersions] = useState<AssetVersionVO[]>([])
@@ -62,6 +63,12 @@ const AgentDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState('intro')
   const [isFavorite, setIsFavorite] = useState(false)
+  const isMarketRoute = location.pathname.startsWith('/market/agents')
+  const backPath = isMarketRoute ? '/market/agents' : '/agents'
+  const backLabel = isMarketRoute ? '返回市场' : '返回智能体'
+  const rootBreadcrumb = isMarketRoute
+    ? { label: '智能体市场', path: '/market/agents' }
+    : { label: '我的资产', path: '/agents' }
 
   useEffect(() => {
     if (!id) return
@@ -83,7 +90,7 @@ const AgentDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Layout breadcrumb={[{ label: '智能体市场', path: '/market/agents' }, { label: '...' }]}>
+      <Layout breadcrumb={[rootBreadcrumb, { label: '...' }]}>
         <div className="flex items-center justify-center h-64">
           <Loader2 className="w-6 h-6 animate-spin text-brand-500" />
         </div>
@@ -93,7 +100,7 @@ const AgentDetailPage: React.FC = () => {
 
   if (error || !agent) {
     return (
-      <Layout breadcrumb={[{ label: '智能体市场', path: '/market/agents' }]}>
+      <Layout breadcrumb={[rootBreadcrumb]}>
         <div className="p-8 text-center text-error-500">{error ?? 'Agent not found'}</div>
       </Layout>
     )
@@ -111,17 +118,17 @@ const AgentDetailPage: React.FC = () => {
   return (
     <Layout
       breadcrumb={[
-        { label: '智能体市场', path: '/market/agents' },
+        rootBreadcrumb,
         { label: agent.name },
       ]}
     >
       <div className="p-8 flex flex-col gap-5 h-full overflow-auto">
         <button
-          onClick={() => navigate('/market/agents')}
+          onClick={() => navigate(backPath)}
           className="flex items-center gap-1 text-sm text-text-secondary hover:text-text-primary"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>返回市场</span>
+          <span>{backLabel}</span>
         </button>
 
         <div className="p-7 rounded-2xl bg-white border border-border-subtle flex items-center gap-5">
