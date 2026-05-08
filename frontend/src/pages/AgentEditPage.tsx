@@ -19,7 +19,6 @@ import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import { getAgent, updateAgent, deleteAgent, listAgents } from '../api/agent'
-import { publishAsset } from '../api/market'
 import { listAllModels } from '../api/model'
 import { listSkills } from '../api/skill'
 import { listMcps } from '../api/mcp'
@@ -124,7 +123,7 @@ const PublishDialog: React.FC<{
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-[460px] bg-white rounded-xl shadow-xl p-6 flex flex-col gap-5">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-text-primary">发布智能体</h3>
+          <h3 className="text-base font-bold text-text-primary">发布前设置</h3>
           <button onClick={onClose} className="text-text-tertiary hover:text-text-primary">
             <X className="w-4 h-4" />
           </button>
@@ -178,7 +177,7 @@ const PublishDialog: React.FC<{
             取消
           </Button>
           <Button variant="primary" onClick={() => onConfirm({ visibility, version, releaseNotes })} disabled={publishing}>
-            {publishing ? '发布中...' : '确认发布'}
+            {publishing ? '准备调试中...' : '进入调试'}
           </Button>
         </div>
       </div>
@@ -463,16 +462,17 @@ const AgentEditPage: React.FC = () => {
     setError(null)
     try {
       await updateAgent(id, buildUpdateRequest())
-      await publishAsset({
-        assetType: 'AGENT',
-        assetId: id,
-        visibility: data.visibility,
-        version: data.version,
-        releaseNotes: data.releaseNotes || undefined,
+      navigate(`/agents/debug/${id}`, {
+        state: {
+          publish: {
+            visibility: data.visibility,
+            version: data.version,
+            releaseNotes: data.releaseNotes || undefined,
+          },
+        },
       })
-      navigate('/agents', { state: { published: true } })
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : '发布失败，请重试')
+      setError(e instanceof ApiError ? e.message : '进入调试失败，请重试')
     } finally {
       setPublishing(false)
       setShowPublishDialog(false)

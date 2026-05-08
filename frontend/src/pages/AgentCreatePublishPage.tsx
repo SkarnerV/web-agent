@@ -4,7 +4,6 @@ import { ChevronLeft, Check, Rocket, Globe, Lock, Users } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { createAgent } from '../api/agent'
-import { publishAsset } from '../api/market'
 import { ApiError } from '../api/client'
 import {
   clearAgentWizardDraft,
@@ -195,22 +194,23 @@ const AgentCreatePublishPage: React.FC = () => {
     }
   }
 
-  const handlePublish = async () => {
+  const handleStartDebug = async () => {
     setSaving(true)
     setError(null)
     try {
       const agent = await createFromDraft()
-      await publishAsset({
-        assetType: 'AGENT',
-        assetId: agent.id,
-        visibility: publishScope,
-        version: version.trim() || '1.0.0',
-        releaseNotes: publishNotes.trim() || undefined,
-      })
       clearAgentWizardDraft()
-      navigate('/agents', { state: { published: true, agentId: agent.id } })
+      navigate(`/agents/debug/${agent.id}`, {
+        state: {
+          publish: {
+            visibility: publishScope,
+            version: version.trim() || '1.0.0',
+            releaseNotes: publishNotes.trim() || undefined,
+          },
+        },
+      })
     } catch (e) {
-      setError(e instanceof ApiError || e instanceof Error ? e.message : '发布失败，请重试')
+      setError(e instanceof ApiError || e instanceof Error ? e.message : '进入调试失败，请重试')
     } finally {
       setSaving(false)
     }
@@ -318,8 +318,8 @@ const AgentCreatePublishPage: React.FC = () => {
                 <Button variant="secondary" onClick={handleSaveDraft} disabled={saving}>
                   保存草稿
                 </Button>
-                <Button variant="primary" icon={<Rocket className="w-4 h-4" />} onClick={handlePublish} disabled={saving}>
-                  {saving ? '发布中...' : '发布'}
+                <Button variant="primary" icon={<Rocket className="w-4 h-4" />} onClick={handleStartDebug} disabled={saving}>
+                  {saving ? '准备调试中...' : '开始调试'}
                 </Button>
               </div>
             </div>
