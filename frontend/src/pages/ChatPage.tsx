@@ -877,10 +877,59 @@ const ChatPage: React.FC = () => {
     assistantId: string,
   ): Promise<string> => {
     let terminalStatus = 'COMPLETED'
+    let activeStreamMessageId = assistantId
+    const streamMessageIds = new Set<string>([assistantId])
+
+    const ensureStreamMessage = (start: SseMessageStart) => {
+      activeStreamMessageId = start.message_id
+      streamMessageIds.add(start.message_id)
+      setMessages((prev) => {
+        const existing = prev.find((m) => m.backendId === start.message_id || m.id === start.message_id)
+        if (existing) {
+          return prev.map((m) =>
+            m === existing
+              ? { ...m, backendId: start.message_id, status: 'STREAMING' }
+              : m,
+          )
+        }
+
+        const placeholderIndex = prev.findIndex((m) =>
+          m.id === assistantId && !m.backendId && m.role === 'assistant' && !m.content,
+        )
+        if (placeholderIndex >= 0) {
+          return prev.map((m, index) =>
+            index === placeholderIndex
+              ? { ...m, backendId: start.message_id, status: 'STREAMING' }
+              : m,
+          )
+        }
+
+        const seed = prev.find((m) => m.id === assistantId || m.backendId === assistantId)
+        const nextMessage: LocalMessage = {
+          id: `asst_${start.message_id}`,
+          backendId: start.message_id,
+          role: 'assistant',
+          content: '',
+          time: start.timestamp ?? new Date().toISOString(),
+          avatar: seed?.avatar ?? currentAgent?.name?.[0] ?? 'A',
+          agentName: seed?.agentName ?? currentAgent?.name,
+          status: 'STREAMING',
+        }
+        streamMessageIds.add(nextMessage.id)
+        return [...prev, nextMessage]
+      })
+    }
 
     for await (const event of stream) {
       let nextTodo: TodoState | null = null
       let nextQuestion: QuestionCardState | null = null
+      const eventMessageId = (event.data as { message_id?: string } | undefined)?.message_id
+      const targetMessageId = eventMessageId ?? activeStreamMessageId
+
+      if (event.type === 'message_start') {
+        ensureStreamMessage(event.data as SseMessageStart)
+        continue
+      }
 
       if (event.type === 'todo_updated') {
         const todo = event.data as SseTodoUpdated
@@ -915,16 +964,10 @@ const ChatPage: React.FC = () => {
 
       setMessages((prev) =>
         prev.map((m) => {
-          if (m.id !== assistantId && m.backendId !== assistantId) return m
+          if (m.id !== targetMessageId && m.backendId !== targetMessageId) return m
           const updated = { ...m }
 
           switch (event.type) {
-            case 'message_start': {
-              const start = event.data as SseMessageStart
-              updated.backendId = start.message_id
-              updated.status = 'STREAMING'
-              break
-            }
             case 'token': {
               const t = event.data as SseToken
               updated.content = (updated.content ?? '') + t.delta
@@ -997,9 +1040,11 @@ const ChatPage: React.FC = () => {
 
     setMessages((prev) =>
       prev.map((m) => {
-        if (m.id !== assistantId && m.backendId !== assistantId) return m
+        const belongsToStream = streamMessageIds.has(m.id) || (!!m.backendId && streamMessageIds.has(m.backendId))
+        if (!belongsToStream) return m
         const shouldWait = terminalStatus === 'WAITING_USER_INPUT' || m.status === 'WAITING_USER_INPUT'
-        return { ...m, status: shouldWait ? 'WAITING_USER_INPUT' : terminalStatus }
+        if (shouldWait) return { ...m, status: 'WAITING_USER_INPUT' }
+        return m.status === 'STREAMING' ? { ...m, status: terminalStatus } : m
       }),
     )
 

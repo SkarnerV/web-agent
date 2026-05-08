@@ -19,7 +19,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public class SseEventBuilder {
 
     private final String requestId;
-    private final String messageId;
+    private String messageId;
     private final ObjectMapper objectMapper;
     private final AtomicLong eventCounter = new AtomicLong(0);
     private final AtomicInteger seqCounter = new AtomicInteger(0);
@@ -35,6 +35,10 @@ public class SseEventBuilder {
         this.requestId = requestId;
         this.messageId = messageId;
         this.objectMapper = objectMapper;
+    }
+
+    public void setMessageId(String messageId) {
+        this.messageId = messageId;
     }
 
     public static String generateEventId() {

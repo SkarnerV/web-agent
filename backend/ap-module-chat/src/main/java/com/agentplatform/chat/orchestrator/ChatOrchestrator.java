@@ -284,21 +284,121 @@ public class ChatOrchestrator {
         return emitter;
     }
 
+    private final class AssistantMessageRun {
+        private final UUID sessionId;
+        private final SseEmitter emitter;
+        private final SseEventBuilder evt;
+        private final String streamCacheMessageId;
+        private final UUID agentId;
+        private final String modelId;
+
+        private String currentMessageId;
+        private boolean currentIsUpdate;
+        private boolean started;
+        private StringBuilder content = new StringBuilder();
+        private List<Map<String, Object>> toolCalls = new ArrayList<>();
+        private List<Map<String, Object>> toolResults = new ArrayList<>();
+
+        private AssistantMessageRun(UUID sessionId, SseEmitter emitter, SseEventBuilder evt,
+                                    String streamCacheMessageId, UUID agentId, String modelId) {
+            this.sessionId = sessionId;
+            this.emitter = emitter;
+            this.evt = evt;
+            this.streamCacheMessageId = streamCacheMessageId;
+            this.agentId = agentId;
+            this.modelId = modelId;
+        }
+
+        private void start(String messageId, boolean isUpdate, String initialContent,
+                           List<Map<String, Object>> initialToolCalls,
+                           List<Map<String, Object>> initialToolResults) throws IOException {
+            this.currentMessageId = messageId;
+            this.currentIsUpdate = isUpdate;
+            this.content = new StringBuilder(initialContent != null ? initialContent : "");
+            this.toolCalls = new ArrayList<>(initialToolCalls != null ? initialToolCalls : List.of());
+            this.toolResults = new ArrayList<>(initialToolResults != null ? initialToolResults : List.of());
+            this.started = true;
+            evt.setMessageId(currentMessageId);
+            sendAndCache(emitter, evt.messageStart(agentId, modelId), streamCacheMessageId);
+        }
+
+        private void ensureStarted() throws IOException {
+            if (!started) {
+                start(UUID.randomUUID().toString(), false, "", List.of(), List.of());
+            }
+        }
+
+        private String currentMessageId() throws IOException {
+            ensureStarted();
+            return currentMessageId;
+        }
+
+        private void appendToken(String delta) throws IOException {
+            ensureStarted();
+            content.append(delta);
+            sendAndCache(emitter, evt.token(delta), streamCacheMessageId);
+        }
+
+        private void addToolCall(Map<String, Object> toolCallRecord) throws IOException {
+            ensureStarted();
+            toolCalls.add(toolCallRecord);
+        }
+
+        private void addToolResult(Map<String, Object> toolResultRecord) throws IOException {
+            ensureStarted();
+            toolResults.add(toolResultRecord);
+        }
+
+        private boolean hasPersistableData() {
+            return started && (!content.toString().isBlank()
+                    || !toolCalls.isEmpty()
+                    || !toolResults.isEmpty());
+        }
+
+        private void completeAndPersist(String status, String finishReason,
+                                        Map<String, Object> usage, int totalSteps,
+                                        int promptTokens, int completionTokens,
+                                        boolean sendMessageEnd) throws IOException {
+            if (!started) {
+                return;
+            }
+            evt.setMessageId(currentMessageId);
+            if (sendMessageEnd) {
+                sendAndCache(emitter, evt.messageEnd(finishReason, usage, totalSteps),
+                        streamCacheMessageId);
+            }
+            if (hasPersistableData()) {
+                persistMessage(sessionId, currentMessageId, content.toString(), status,
+                        agentId, modelId, totalSteps, toolCalls, toolResults,
+                        promptTokens, completionTokens, currentIsUpdate);
+            }
+            started = false;
+            currentMessageId = null;
+            currentIsUpdate = false;
+            content = new StringBuilder();
+            toolCalls = new ArrayList<>();
+            toolResults = new ArrayList<>();
+        }
+    }
+
     private void streamReply(ChatSessionEntity session, String requestId, String messageId,
                              int maxSteps, int startStep, boolean isUpdate,
                              String idempotencyKey, ResumeData resumeData, SseEmitter emitter) {
         SseEventBuilder evt = new SseEventBuilder(requestId, messageId, objectMapper);
-        StringBuilder fullContent = new StringBuilder(resumeData != null && resumeData.initialContent() != null
+        StringBuilder titleContent = new StringBuilder(resumeData != null && resumeData.initialContent() != null
                 ? resumeData.initialContent() : "");
-        List<Map<String, Object>> toolCallRecords = new ArrayList<>(
+        List<Map<String, Object>> allToolCallRecords = new ArrayList<>(
                 resumeData != null ? resumeData.toolCallRecords() : List.of());
-        List<Map<String, Object>> toolResultRecords = new ArrayList<>(
+        List<Map<String, Object>> allToolResultRecords = new ArrayList<>(
                 resumeData != null ? resumeData.toolResultRecords() : List.of());
         TodoState todoState = resumeData != null ? resumeData.todoState() : null;
         int totalSteps = startStep;
         int promptTokens = 0;
         int completionTokens = 0;
         String finalFinishReason = "stop";
+        Map<String, Object> emptyUsage = Map.of(
+                "prompt_tokens", 0,
+                "completion_tokens", 0);
 
         try {
             UUID agentId = session.getCurrentAgentId();
@@ -307,7 +407,11 @@ public class ChatOrchestrator {
             List<Map<String, Object>> tools = llmToolSpecFactory.buildTools(toolBindingMap);
 
             sseEventCacheService.ifPresent(svc -> svc.registerSessionMessage(session.getId().toString(), messageId));
-            sendAndCache(emitter, evt.messageStart(agentId, modelId), messageId);
+            AssistantMessageRun messageRun = new AssistantMessageRun(
+                    session.getId(), emitter, evt, messageId, agentId, modelId);
+            messageRun.start(messageId, isUpdate,
+                    resumeData != null ? resumeData.initialContent() : "",
+                    allToolCallRecords, allToolResultRecords);
 
             List<LlmMessage> context = resumeData != null
                     ? new ArrayList<>(resumeData.context())
@@ -315,11 +419,13 @@ public class ChatOrchestrator {
             if (resumeData != null && resumeData.questionAnswer() != null) {
                 QuestionAnswer answer = resumeData.questionAnswer();
                 context.add(LlmMessage.toolResult(answer.toolCallId(), answer.content()));
-                toolResultRecords.add(Map.of(
+                Map<String, Object> answerRecord = Map.of(
                         "tool_call_id", answer.toolCallId(),
                         "status", "success",
                         "content", answer.content(),
-                        "builtin_ui", BuiltinUiTools.QUESTION));
+                        "builtin_ui", BuiltinUiTools.QUESTION);
+                allToolResultRecords.add(answerRecord);
+                messageRun.addToolResult(answerRecord);
             }
 
             for (int step = startStep + 1; step <= startStep + maxSteps; step++) {
@@ -336,9 +442,9 @@ public class ChatOrchestrator {
                     switch (chunk) {
                         case LlmChunk.ReasoningChunk rc -> assistantStepReasoning.append(rc.delta());
                         case LlmChunk.TokenChunk tc -> {
-                            fullContent.append(tc.delta());
+                            titleContent.append(tc.delta());
                             assistantStepContent.append(tc.delta());
-                            sendAndCache(emitter, evt.token(tc.delta()), messageId);
+                            messageRun.appendToken(tc.delta());
                         }
                         case LlmChunk.ToolCallChunk tcc -> stepToolCalls.add(tcc);
                         case LlmChunk.FinishChunk fc -> {
@@ -349,10 +455,8 @@ public class ChatOrchestrator {
                         case LlmChunk.ErrorChunk ec -> {
                             sendAndCache(emitter, evt.error(ec.code(), ec.message(), false),
                                     messageId);
-                            persistMessage(session.getId(), messageId, fullContent.toString(),
-                                    "incomplete", agentId, modelId, totalSteps,
-                                    toolCallRecords, toolResultRecords, promptTokens, completionTokens,
-                                    isUpdate);
+                            messageRun.completeAndPersist("incomplete", finalFinishReason, emptyUsage,
+                                    totalSteps, 0, 0, false);
                             emitter.complete();
                             return;
                         }
@@ -363,18 +467,18 @@ public class ChatOrchestrator {
                     if (hasOpenTodoItems(todoState)) {
                         if (step >= startStep + maxSteps) {
                             UUID stateId = saveSessionState(session.getId(), context, step,
-                                    toolCache("step_limit", messageId, null, todoState,
-                                            toolCallRecords, toolResultRecords));
+                                    toolCache("step_limit", messageRun.currentMessageId(), null, todoState,
+                                            allToolCallRecords, allToolResultRecords));
                             sendAndCache(emitter, evt.stepLimit(step, maxSteps, stateId), messageId);
-                            persistMessage(session.getId(), messageId, fullContent.toString(),
-                                    "incomplete", agentId, modelId, totalSteps,
-                                    toolCallRecords, toolResultRecords, promptTokens, completionTokens,
-                                    isUpdate);
+                            messageRun.completeAndPersist("incomplete", finalFinishReason, emptyUsage,
+                                    totalSteps, 0, 0, false);
                             emitter.complete();
                             return;
                         }
                         if (!assistantStepContent.toString().isBlank()) {
                             context.add(LlmMessage.assistant(assistantStepContent.toString()));
+                            messageRun.completeAndPersist("complete", "task_output", emptyUsage,
+                                    totalSteps, 0, 0, true);
                         }
                         context.add(LlmMessage.user(todoContinuationPrompt(todoState)));
                         continue;
@@ -400,13 +504,16 @@ public class ChatOrchestrator {
 
                 for (LlmChunk.ToolCallChunk tcc : normalizedToolCalls) {
                     String toolCallId = tcc.toolCallId();
+                    messageRun.ensureStarted();
                     sendAndCache(emitter, evt.toolCallStart(toolCallId, tcc.toolName(),
                             tcc.arguments(), step), messageId);
 
-                    toolCallRecords.add(Map.of(
+                    Map<String, Object> toolCallRecord = Map.of(
                             "tool_call_id", toolCallId,
                             "tool_name", tcc.toolName(),
-                            "arguments", tcc.arguments()));
+                            "arguments", tcc.arguments());
+                    allToolCallRecords.add(toolCallRecord);
+                    messageRun.addToolCall(toolCallRecord);
 
                     if (BuiltinUiTools.TODO.equals(tcc.toolName())) {
                         long start = System.currentTimeMillis();
@@ -418,11 +525,13 @@ public class ChatOrchestrator {
                         sendAndCache(emitter, evt.toolCallEnd(toolCallId, "success",
                                         "Todo list updated", System.currentTimeMillis() - start),
                                 messageId);
-                        toolResultRecords.add(Map.of(
+                        Map<String, Object> toolResultRecord = Map.of(
                                 "tool_call_id", toolCallId,
                                 "status", "success",
                                 "content", resultContent,
-                                "todo_state", todoStateAsMap(todoState)));
+                                "todo_state", todoStateAsMap(todoState));
+                        allToolResultRecords.add(toolResultRecord);
+                        messageRun.addToolResult(toolResultRecord);
                         context.add(LlmMessage.toolResult(toolCallId, resultContent));
                         continue;
                     }
@@ -439,25 +548,29 @@ public class ChatOrchestrator {
                             sendAndCache(emitter, evt.toolCallEnd(toolCallId, "failed",
                                             validationMessage, System.currentTimeMillis() - start),
                                     messageId);
-                            toolResultRecords.add(Map.of(
+                            Map<String, Object> failedQuestionRecord = Map.of(
                                     "tool_call_id", toolCallId,
                                     "status", "failed",
                                     "content", validationMessage,
-                                    "builtin_ui", BuiltinUiTools.QUESTION));
+                                    "builtin_ui", BuiltinUiTools.QUESTION);
+                            allToolResultRecords.add(failedQuestionRecord);
+                            messageRun.addToolResult(failedQuestionRecord);
                             context.add(LlmMessage.toolResult(toolCallId, validationMessage));
                             continue;
                         }
                         Map<String, Object> questionState = pendingQuestionAsMap(pendingQuestion);
                         UUID stateId = UUID.randomUUID();
                         questionState.put("session_state_id", stateId.toString());
-                        toolResultRecords.add(Map.of(
+                        Map<String, Object> questionRecord = Map.of(
                                 "tool_call_id", toolCallId,
                                 "status", "requires_action",
                                 "content", toJson(questionState),
-                                "question_state", questionState));
+                                "question_state", questionState);
+                        allToolResultRecords.add(questionRecord);
+                        messageRun.addToolResult(questionRecord);
                         saveSessionState(stateId, session.getId(), context, step,
-                                toolCache("question", messageId, questionState, todoState,
-                                        toolCallRecords, toolResultRecords));
+                                toolCache("question", messageRun.currentMessageId(), questionState, todoState,
+                                        allToolCallRecords, allToolResultRecords));
                         sendAndCache(emitter, evt.toolCallEnd(toolCallId, "requires_action",
                                         "Waiting for user answer", System.currentTimeMillis() - start),
                                 messageId);
@@ -466,10 +579,8 @@ public class ChatOrchestrator {
                                         questionOptionsAsMaps(pendingQuestion),
                                         pendingQuestion.allowFreeText(), pendingQuestion.multiSelect()),
                                 messageId);
-                        persistMessage(session.getId(), messageId, fullContent.toString(),
-                                "incomplete", agentId, modelId, totalSteps,
-                                toolCallRecords, toolResultRecords, promptTokens, completionTokens,
-                                isUpdate);
+                        messageRun.completeAndPersist("incomplete", finalFinishReason, emptyUsage,
+                                totalSteps, 0, 0, false);
                         emitter.complete();
                         return;
                     }
@@ -483,22 +594,31 @@ public class ChatOrchestrator {
                                     truncate(result.content(), 200), result.durationMs()),
                             messageId);
 
-                    toolResultRecords.add(Map.of(
+                    Map<String, Object> toolResultRecord = Map.of(
                             "tool_call_id", toolCallId,
                             "status", result.status(),
-                            "content", result.content()));
+                            "content", result.content());
+                    allToolResultRecords.add(toolResultRecord);
+                    messageRun.addToolResult(toolResultRecord);
                     context.add(LlmMessage.toolResult(toolCallId, result.content()));
+                }
+
+                if (hasOpenTodoItems(todoState) && !assistantStepContent.toString().isBlank()) {
+                    messageRun.completeAndPersist("complete", "task_output", emptyUsage,
+                            totalSteps, 0, 0, true);
+                    if (step < startStep + maxSteps) {
+                        context.add(LlmMessage.user(todoContinuationPrompt(todoState)));
+                        continue;
+                    }
                 }
 
                 if (step >= startStep + maxSteps) {
                     UUID stateId = saveSessionState(session.getId(), context, step,
-                            toolCache("step_limit", messageId, null, todoState,
-                                    toolCallRecords, toolResultRecords));
+                            toolCache("step_limit", messageRun.currentMessageId(), null, todoState,
+                                    allToolCallRecords, allToolResultRecords));
                     sendAndCache(emitter, evt.stepLimit(step, maxSteps, stateId), messageId);
-                    persistMessage(session.getId(), messageId, fullContent.toString(),
-                            "incomplete", agentId, modelId, totalSteps,
-                            toolCallRecords, toolResultRecords, promptTokens, completionTokens,
-                            isUpdate);
+                    messageRun.completeAndPersist("incomplete", finalFinishReason, emptyUsage,
+                            totalSteps, 0, 0, false);
                     emitter.complete();
                     return;
                 }
@@ -507,19 +627,15 @@ public class ChatOrchestrator {
             Map<String, Object> usage = Map.of(
                     "prompt_tokens", promptTokens,
                     "completion_tokens", completionTokens);
-            sendAndCache(emitter, evt.messageEnd(finalFinishReason, usage, totalSteps), messageId);
-
-            persistMessage(session.getId(), messageId, fullContent.toString(),
-                    "complete", agentId, modelId, totalSteps,
-                    toolCallRecords, toolResultRecords, promptTokens, completionTokens,
-                    isUpdate);
+            messageRun.completeAndPersist("complete", finalFinishReason, usage,
+                    totalSteps, promptTokens, completionTokens, true);
 
             if (idempotencyKey != null && idempotencyService.isPresent()) {
                 idempotencyService.get().markComplete(session.getId(), idempotencyKey, messageId);
             }
 
-            if (fullContent.length() > 0) {
-                String title = fullContent.substring(0, Math.min(20, fullContent.length()));
+            if (titleContent.length() > 0) {
+                String title = titleContent.substring(0, Math.min(20, titleContent.length()));
                 sessionService.updateSessionTitle(session.getId(), title);
             }
 

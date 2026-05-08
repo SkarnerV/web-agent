@@ -295,12 +295,94 @@ class ChatOrchestratorTest {
                 .extracting(LlmMessage::content)
                 .anySatisfy(content -> assertThat(content).contains("visible todo list is still not done"));
 
-        assertThat(insertCaptor.getAllValues()).anySatisfy(inserted -> {
-            assertThat(inserted.getRole()).isEqualTo("assistant");
-            assertThat(inserted.getContent()).isEqualTo("Todo created.Done.");
-            assertThat(inserted.getStatus()).isEqualTo("complete");
-            assertThat(inserted.getToolResults()).contains("\\\"remaining_count\\\":0");
-            assertThat(inserted.getToolResults()).contains("\"status\":\"completed\"");
-        });
+        List<ChatMessageEntity> assistantMessages = insertCaptor.getAllValues().stream()
+                .filter(inserted -> "assistant".equals(inserted.getRole()))
+                .toList();
+        assertThat(assistantMessages)
+                .extracting(ChatMessageEntity::getContent)
+                .containsExactly("Todo created.", "Done.");
+        assertThat(assistantMessages.get(0).getStatus()).isEqualTo("complete");
+        assertThat(assistantMessages.get(1).getStatus()).isEqualTo("complete");
+        assertThat(assistantMessages.get(1).getToolResults()).contains("\\\"remaining_count\\\":0");
+        assertThat(assistantMessages.get(1).getToolResults()).contains("\"status\":\"completed\"");
+    }
+
+    @Test
+    @DisplayName("task output splits when LLM produces text + todo tool call in the same step")
+    void taskOutputSplitWithMixedTextAndToolCalls() throws Exception {
+        ChatSessionEntity session = new ChatSessionEntity()
+                .setId(SESSION_ID)
+                .setUserId(USER_ID)
+                .setCurrentAgentId(AGENT_ID)
+                .setCreatedAt(OffsetDateTime.now());
+        when(sessionService.getSessionOrThrow(SESSION_ID, USER_ID)).thenReturn(session);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+        when(agentConfigProvider.getMaxSteps(AGENT_ID)).thenReturn(10);
+        when(agentConfigProvider.getToolBindings(AGENT_ID)).thenReturn(Map.of());
+
+        String createTodoArgs = objectMapper.writeValueAsString(Map.of(
+                "title", "Tasks",
+                "items", List.of(
+                        Map.of("id", "t1", "title", "Task 1", "status", "in_progress"),
+                        Map.of("id", "t2", "title", "Task 2", "status", "pending"))));
+        String completeT1Args = objectMapper.writeValueAsString(Map.of(
+                "items", List.of(
+                        Map.of("id", "t1", "status", "completed"),
+                        Map.of("id", "t2", "status", "in_progress"))));
+        String completeT2Args = objectMapper.writeValueAsString(Map.of(
+                "items", List.of(
+                        Map.of("id", "t2", "status", "completed"))));
+
+        AtomicInteger callCount = new AtomicInteger();
+        List<List<LlmMessage>> contexts = new CopyOnWriteArrayList<>();
+        LlmStreamService scriptedLlm = (modelId, context, tools) -> {
+            contexts.add(List.copyOf(context));
+            int call = callCount.incrementAndGet();
+            return switch (call) {
+                case 1 -> List.<LlmChunk>of(
+                        new LlmChunk.TokenChunk("I'll work on 2 tasks."),
+                        new LlmChunk.ToolCallChunk("call_create", "todo", createTodoArgs),
+                        new LlmChunk.FinishChunk("tool_calls", 5, 5)).iterator();
+                case 2 -> List.<LlmChunk>of(
+                        new LlmChunk.TokenChunk("Task 1 result."),
+                        new LlmChunk.ToolCallChunk("call_t1", "todo", completeT1Args),
+                        new LlmChunk.FinishChunk("tool_calls", 5, 5)).iterator();
+                case 3 -> List.<LlmChunk>of(
+                        new LlmChunk.TokenChunk("Task 2 result."),
+                        new LlmChunk.ToolCallChunk("call_t2", "todo", completeT2Args),
+                        new LlmChunk.FinishChunk("tool_calls", 5, 5)).iterator();
+                default -> List.<LlmChunk>of(
+                        new LlmChunk.TokenChunk("All done."),
+                        new LlmChunk.FinishChunk("stop", 5, 5)).iterator();
+            };
+        };
+        ChatOrchestrator splitOrchestrator = new ChatOrchestrator(
+                sessionService, messageMapper, sessionStateMapper,
+                scriptedLlm, toolDispatcher,
+                new BuiltinToolExecutor(objectMapper), new LlmToolSpecFactory(objectMapper),
+                objectMapper,
+                Optional.of(agentConfigProvider), Optional.of(idempotencyService), Optional.of(sseEventCacheService));
+
+        SendMessageRequest request = new SendMessageRequest();
+        request.setContent("Do two tasks");
+
+        SseEmitter emitter = splitOrchestrator.handleSendMessage(SESSION_ID, request, USER_ID);
+        assertThat(emitter).isNotNull();
+
+        ArgumentCaptor<ChatMessageEntity> insertCaptor = ArgumentCaptor.forClass(ChatMessageEntity.class);
+        verify(messageMapper, timeout(3000).atLeast(3)).insert(insertCaptor.capture());
+
+        List<ChatMessageEntity> assistantMessages = insertCaptor.getAllValues().stream()
+                .filter(inserted -> "assistant".equals(inserted.getRole()))
+                .toList();
+        assertThat(assistantMessages)
+                .extracting(ChatMessageEntity::getContent)
+                .containsExactly("I'll work on 2 tasks.", "Task 1 result.", "Task 2 result.All done.");
+        assertThat(assistantMessages).allSatisfy(msg ->
+                assertThat(msg.getStatus()).isEqualTo("complete"));
+
+        assertThat(contexts.get(1))
+                .extracting(LlmMessage::content)
+                .anySatisfy(content -> assertThat(content).contains("visible todo list is still not done"));
     }
 }
