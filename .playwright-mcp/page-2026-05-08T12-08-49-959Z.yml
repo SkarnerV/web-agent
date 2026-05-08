@@ -1,0 +1,74 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img [ref=e7]
+    - button "首页" [ref=e9] [cursor=pointer]:
+      - img [ref=e11]
+    - button "对话" [ref=e16] [cursor=pointer]:
+      - img [ref=e18]
+    - button "智能体" [ref=e21] [cursor=pointer]:
+      - img [ref=e23]
+    - button "Skill" [ref=e26] [cursor=pointer]:
+      - img [ref=e28]
+    - button "MCP" [ref=e33] [cursor=pointer]:
+      - img [ref=e35]
+    - button "知识库" [ref=e37] [cursor=pointer]:
+      - img [ref=e39]
+    - button "模型管理" [ref=e42] [cursor=pointer]:
+      - img [ref=e44]
+    - button "智能体市场" [ref=e48] [cursor=pointer]:
+      - img [ref=e50]
+    - button "Skill 市场" [ref=e55] [cursor=pointer]:
+      - img [ref=e57]
+    - button "MCP 市场" [ref=e61] [cursor=pointer]:
+      - img [ref=e63]
+    - button "创建" [ref=e68] [cursor=pointer]:
+      - img [ref=e69]
+    - button [ref=e71] [cursor=pointer]:
+      - img [ref=e72]
+  - generic [ref=e75]:
+    - banner [ref=e76]:
+      - generic [ref=e78]: 首页
+      - generic [ref=e79]:
+        - generic [ref=e80]:
+          - img
+          - textbox "搜索..." [ref=e83]
+        - button [ref=e84] [cursor=pointer]:
+          - img [ref=e85]
+        - button "张" [ref=e88] [cursor=pointer]:
+          - generic [ref=e90]: 张
+    - main [ref=e91]:
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - heading "晚上好, 张三 👋" [level=1] [ref=e94]
+          - paragraph [ref=e95]: 今天是 2026年5月8日 周五, 今天想做些什么?
+        - generic [ref=e96]:
+          - button "开始对话 与智能体快速交流" [ref=e97] [cursor=pointer]:
+            - img [ref=e99]
+            - generic [ref=e101]: 开始对话
+            - generic [ref=e102]: 与智能体快速交流
+          - button "创建智能体 配置专属 AI 助手" [ref=e103] [cursor=pointer]:
+            - img [ref=e105]
+            - generic [ref=e108]: 创建智能体
+            - generic [ref=e109]: 配置专属 AI 助手
+          - button "创建 Skill 封装多步骤作业能力" [ref=e110] [cursor=pointer]:
+            - img [ref=e112]
+            - generic [ref=e117]: 创建 Skill
+            - generic [ref=e118]: 封装多步骤作业能力
+          - button "添加 MCP 接入外部工具服务器" [ref=e119] [cursor=pointer]:
+            - img [ref=e121]
+            - generic [ref=e123]: 添加 MCP
+            - generic [ref=e124]: 接入外部工具服务器
+        - generic [ref=e125]:
+          - generic [ref=e126]:
+            - generic [ref=e127]: 最近使用的智能体
+            - button "查看全部 →" [ref=e128] [cursor=pointer]
+          - img [ref=e130]
+        - generic [ref=e132]:
+          - generic [ref=e133]:
+            - generic [ref=e134]: 我的资产统计
+            - img [ref=e136]
+          - generic [ref=e138]:
+            - generic [ref=e139]:
+              - generic [ref=e140]: 市场精选
+              - button "更多 →" [ref=e141] [cursor=pointer]
+            - img [ref=e143]

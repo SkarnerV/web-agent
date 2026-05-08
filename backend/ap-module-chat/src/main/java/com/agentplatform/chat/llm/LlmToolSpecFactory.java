@@ -31,7 +31,7 @@ public class LlmToolSpecFactory {
         added.add(BuiltinUiTools.QUESTION);
 
         tools.add(functionTool(BuiltinUiTools.TODO,
-                "Create or update the visible todo list for the current agent run.",
+                "Create or update the visible todo list for the current agent run. This is an active execution plan: continue working and updating it until every item is completed.",
                 BuiltinUiTools.todoSchema()));
         added.add(BuiltinUiTools.TODO);
 

@@ -7,6 +7,7 @@ import com.agentplatform.chat.entity.ChatSessionEntity;
 import com.agentplatform.chat.entity.ChatSessionStateEntity;
 import com.agentplatform.chat.llm.DefaultLlmStreamService;
 import com.agentplatform.chat.llm.LlmChunk;
+import com.agentplatform.chat.llm.LlmMessage;
 import com.agentplatform.chat.llm.LlmToolSpecFactory;
 import com.agentplatform.chat.llm.LlmStreamService;
 import com.agentplatform.chat.mapper.ChatMessageMapper;
@@ -33,6 +34,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -91,7 +94,12 @@ class ChatOrchestratorTest {
         SseEmitter emitter = orchestrator.handleSendMessage(SESSION_ID, request, USER_ID);
 
         assertThat(emitter).isNotNull();
-        verify(messageMapper).insert(any(ChatMessageEntity.class));
+        ArgumentCaptor<ChatMessageEntity> insertCaptor = ArgumentCaptor.forClass(ChatMessageEntity.class);
+        verify(messageMapper, timeout(3000).atLeastOnce()).insert(insertCaptor.capture());
+        assertThat(insertCaptor.getAllValues()).anySatisfy(inserted -> {
+            assertThat(inserted.getRole()).isEqualTo("user");
+            assertThat(inserted.getContent()).isEqualTo("Hello");
+        });
     }
 
     @Test
@@ -216,6 +224,83 @@ class ChatOrchestratorTest {
             assertThat(inserted.getId()).isNotEqualTo(answeredMessageId);
             assertThat(inserted.getContent()).isEqualTo("Thanks for answering.");
             assertThat(inserted.getStatus()).isEqualTo("complete");
+        });
+    }
+
+    @Test
+    @DisplayName("todo keeps the agent running until all items are completed")
+    void todoKeepsRunningUntilCompleted() throws Exception {
+        ChatSessionEntity session = new ChatSessionEntity()
+                .setId(SESSION_ID)
+                .setUserId(USER_ID)
+                .setCurrentAgentId(AGENT_ID)
+                .setCreatedAt(OffsetDateTime.now());
+        when(sessionService.getSessionOrThrow(SESSION_ID, USER_ID)).thenReturn(session);
+        when(messageMapper.selectList(any())).thenReturn(List.of());
+        when(agentConfigProvider.getMaxSteps(AGENT_ID)).thenReturn(10);
+        when(agentConfigProvider.getToolBindings(AGENT_ID)).thenReturn(Map.of());
+
+        String createTodoArgs = objectMapper.writeValueAsString(Map.of(
+                "title", "Debug plan",
+                "items", List.of(Map.of(
+                        "id", "step_1",
+                        "title", "Run the task",
+                        "status", "pending"))));
+        String completeTodoArgs = objectMapper.writeValueAsString(Map.of(
+                "items", List.of(Map.of(
+                        "id", "step_1",
+                        "status", "completed",
+                        "detail", "Task finished"))));
+
+        AtomicInteger callCount = new AtomicInteger();
+        List<List<LlmMessage>> contexts = new CopyOnWriteArrayList<>();
+        LlmStreamService scriptedLlm = (modelId, context, tools) -> {
+            contexts.add(List.copyOf(context));
+            int call = callCount.incrementAndGet();
+            return switch (call) {
+                case 1 -> List.<LlmChunk>of(
+                        new LlmChunk.ToolCallChunk("call_todo_create", "todo", createTodoArgs),
+                        new LlmChunk.FinishChunk("tool_calls", 5, 5)).iterator();
+                case 2 -> List.<LlmChunk>of(
+                        new LlmChunk.TokenChunk("Todo created."),
+                        new LlmChunk.FinishChunk("stop", 5, 5)).iterator();
+                case 3 -> List.<LlmChunk>of(
+                        new LlmChunk.ToolCallChunk("call_todo_done", "todo", completeTodoArgs),
+                        new LlmChunk.FinishChunk("tool_calls", 5, 5)).iterator();
+                default -> List.<LlmChunk>of(
+                        new LlmChunk.TokenChunk("Done."),
+                        new LlmChunk.FinishChunk("stop", 5, 5)).iterator();
+            };
+        };
+        ChatOrchestrator todoOrchestrator = new ChatOrchestrator(
+                sessionService, messageMapper, sessionStateMapper,
+                scriptedLlm, toolDispatcher,
+                new BuiltinToolExecutor(objectMapper), new LlmToolSpecFactory(objectMapper),
+                objectMapper,
+                Optional.of(agentConfigProvider), Optional.of(idempotencyService), Optional.of(sseEventCacheService));
+
+        SendMessageRequest request = new SendMessageRequest();
+        request.setContent("Run this as todos");
+
+        SseEmitter emitter = todoOrchestrator.handleSendMessage(SESSION_ID, request, USER_ID);
+
+        assertThat(emitter).isNotNull();
+
+        ArgumentCaptor<ChatMessageEntity> insertCaptor = ArgumentCaptor.forClass(ChatMessageEntity.class);
+        verify(messageMapper, timeout(3000).atLeast(2)).insert(insertCaptor.capture());
+
+        assertThat(callCount.get()).isEqualTo(4);
+        assertThat(contexts).hasSize(4);
+        assertThat(contexts.get(2))
+                .extracting(LlmMessage::content)
+                .anySatisfy(content -> assertThat(content).contains("visible todo list is still not done"));
+
+        assertThat(insertCaptor.getAllValues()).anySatisfy(inserted -> {
+            assertThat(inserted.getRole()).isEqualTo("assistant");
+            assertThat(inserted.getContent()).isEqualTo("Todo created.Done.");
+            assertThat(inserted.getStatus()).isEqualTo("complete");
+            assertThat(inserted.getToolResults()).contains("\\\"remaining_count\\\":0");
+            assertThat(inserted.getToolResults()).contains("\"status\":\"completed\"");
         });
     }
 }

@@ -1,0 +1,100 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img [ref=e7]
+    - button "首页" [ref=e9] [cursor=pointer]:
+      - img [ref=e11]
+    - button "对话" [ref=e16] [cursor=pointer]:
+      - img [ref=e18]
+    - button "智能体" [ref=e21] [cursor=pointer]:
+      - img [ref=e23]
+    - button "Skill" [ref=e26] [cursor=pointer]:
+      - img [ref=e28]
+    - button "MCP" [ref=e33] [cursor=pointer]:
+      - img [ref=e35]
+    - button "知识库" [ref=e37] [cursor=pointer]:
+      - img [ref=e39]
+    - button "模型管理" [ref=e42] [cursor=pointer]:
+      - img [ref=e44]
+    - button "智能体市场" [ref=e48] [cursor=pointer]:
+      - img [ref=e50]
+    - button "Skill 市场" [ref=e55] [cursor=pointer]:
+      - img [ref=e57]
+    - button "MCP 市场" [ref=e61] [cursor=pointer]:
+      - img [ref=e63]
+    - button "创建" [ref=e68] [cursor=pointer]:
+      - img [ref=e69]
+    - button [ref=e71] [cursor=pointer]:
+      - img [ref=e72]
+  - generic [ref=e75]:
+    - generic [ref=e76]:
+      - button "新建对话" [ref=e77] [cursor=pointer]:
+        - img [ref=e146]
+        - generic [ref=e79]: 新建对话
+      - generic [ref=e80]:
+        - img [ref=e81]
+        - textbox "搜索对话..." [ref=e84]
+      - generic [ref=e128]:
+        - generic [ref=e129]: 今天
+        - 'button "新对话 错误: 模型推理失败 DeleteTestAgent1778242100126 20:10 删除对话" [ref=e159] [cursor=pointer]':
+          - generic [ref=e148]:
+            - generic [ref=e149]: 新对话
+            - generic [ref=e160]: "错误: 模型推理失败"
+            - generic [ref=e150]:
+              - generic [ref=e151]: DeleteTestAgent1778242100126
+              - generic [ref=e152]: 20:10
+          - button "删除对话" [ref=e153]:
+            - generic [ref=e154]: ✕
+        - button "新对话 test 20:08 删除对话" [ref=e130] [cursor=pointer]:
+          - generic [ref=e131]:
+            - generic [ref=e132]: 新对话
+            - generic [ref=e133]:
+              - generic [ref=e134]: test
+              - generic [ref=e135]: 20:08
+          - button "删除对话" [ref=e136]:
+            - generic [ref=e137]: ✕
+        - button "🐶 **汪汪！摇着尾巴等你说话呢～** test 20:00 删除对话" [ref=e138] [cursor=pointer]:
+          - generic [ref=e139]:
+            - generic [ref=e140]: 🐶 **汪汪！摇着尾巴等你说话呢～**
+            - generic [ref=e141]:
+              - generic [ref=e142]: test
+              - generic [ref=e143]: 20:00
+          - button "删除对话" [ref=e144]:
+            - generic [ref=e145]: ✕
+    - generic [ref=e88]:
+      - generic [ref=e89]:
+        - button "DeleteTestAgent1778242100126" [ref=e155] [cursor=pointer]:
+          - img [ref=e93]
+          - generic [ref=e96]: DeleteTestAgent1778242100126
+          - img [ref=e97]
+        - generic [ref=e156]: 新对话
+        - generic [ref=e99]:
+          - button [ref=e100] [cursor=pointer]:
+            - img [ref=e101]
+          - button [ref=e103] [cursor=pointer]:
+            - img [ref=e104]
+      - generic [ref=e108]:
+        - generic [ref=e161]:
+          - generic [ref=e162]:
+            - generic [ref=e163]: 你好，请介绍一下你自己
+            - generic [ref=e164]: 20:11
+          - generic [ref=e166]: 我
+        - generic [ref=e167]:
+          - generic [ref=e169]: D
+          - generic [ref=e170]:
+            - generic [ref=e171]: DeleteTestAgent1778242100126
+            - generic [ref=e172]: "错误: 模型推理失败"
+            - generic [ref=e173]:
+              - button "复制" [ref=e174] [cursor=pointer]:
+                - img [ref=e175]
+                - text: 复制
+              - button "重新生成" [ref=e178] [cursor=pointer]:
+                - img [ref=e179]
+                - text: 重新生成
+            - generic [ref=e184]: 20:11
+      - generic [ref=e116]:
+        - button [ref=e117] [cursor=pointer]:
+          - img [ref=e118]
+        - textbox "输入消息..." [ref=e157]
+        - button "发送" [disabled] [ref=e122]:
+          - img [ref=e185]
+          - generic [ref=e188]: 发送

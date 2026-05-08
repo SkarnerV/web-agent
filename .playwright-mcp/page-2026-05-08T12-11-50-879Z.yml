@@ -1,0 +1,40 @@
+- generic [ref=e257]:
+  - complementary [ref=e258]:
+    - img [ref=e261]
+    - button "首页" [ref=e263] [cursor=pointer]:
+      - img [ref=e265]
+    - button "对话" [ref=e270] [cursor=pointer]:
+      - img [ref=e272]
+    - button "智能体" [ref=e275] [cursor=pointer]:
+      - img [ref=e277]
+    - button "Skill" [ref=e280] [cursor=pointer]:
+      - img [ref=e282]
+    - button "MCP" [ref=e287] [cursor=pointer]:
+      - img [ref=e289]
+    - button "知识库" [ref=e291] [cursor=pointer]:
+      - img [ref=e293]
+    - button "模型管理" [ref=e296] [cursor=pointer]:
+      - img [ref=e298]
+    - button "智能体市场" [ref=e302] [cursor=pointer]:
+      - img [ref=e304]
+    - button "Skill 市场" [ref=e309] [cursor=pointer]:
+      - img [ref=e311]
+    - button "MCP 市场" [ref=e315] [cursor=pointer]:
+      - img [ref=e317]
+    - button "创建" [ref=e322] [cursor=pointer]:
+      - img [ref=e323]
+    - button [ref=e325] [cursor=pointer]:
+      - img [ref=e326]
+  - generic [ref=e329]:
+    - banner [ref=e330]:
+      - generic [ref=e332]: 智能体市场
+      - generic [ref=e333]:
+        - generic [ref=e334]:
+          - img
+          - textbox "搜索..." [ref=e337]
+        - button [ref=e338] [cursor=pointer]:
+          - img [ref=e339]
+        - button "张" [ref=e342] [cursor=pointer]:
+          - generic [ref=e344]: 张
+    - main [ref=e345]:
+      - generic [ref=e346]: "请求参数类型错误: id"

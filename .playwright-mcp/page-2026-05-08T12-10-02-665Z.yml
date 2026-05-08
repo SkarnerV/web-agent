@@ -1,0 +1,193 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img [ref=e7]
+    - button "首页" [ref=e9] [cursor=pointer]:
+      - img [ref=e11]
+    - button "对话" [ref=e16] [cursor=pointer]:
+      - img [ref=e18]
+    - button "智能体" [ref=e21] [cursor=pointer]:
+      - img [ref=e23]
+    - button "Skill" [ref=e26] [cursor=pointer]:
+      - img [ref=e28]
+    - button "MCP" [ref=e33] [cursor=pointer]:
+      - img [ref=e35]
+    - button "知识库" [ref=e37] [cursor=pointer]:
+      - img [ref=e39]
+    - button "模型管理" [ref=e42] [cursor=pointer]:
+      - img [ref=e44]
+    - button "智能体市场" [ref=e48] [cursor=pointer]:
+      - img [ref=e50]
+    - button "Skill 市场" [ref=e55] [cursor=pointer]:
+      - img [ref=e57]
+    - button "MCP 市场" [ref=e61] [cursor=pointer]:
+      - img [ref=e63]
+    - button "创建" [ref=e68] [cursor=pointer]:
+      - img [ref=e69]
+    - button [ref=e71] [cursor=pointer]:
+      - img [ref=e72]
+  - generic [ref=e75]:
+    - banner [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]: 市场
+        - img [ref=e79]
+        - generic [ref=e81]: 智能体市场
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - img
+          - textbox "搜索..." [ref=e86]
+        - button [ref=e87] [cursor=pointer]:
+          - img [ref=e88]
+        - button "张" [ref=e91] [cursor=pointer]:
+          - generic [ref=e93]: 张
+    - main [ref=e94]:
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - generic [ref=e97]:
+            - generic [ref=e98]: 本周推荐
+            - heading "Code Review Pro - AI 代码审查专家" [level=1] [ref=e99]
+            - paragraph [ref=e100]: 精准识别代码问题，评分超过 4.9 / 5，已服务 3200+ 开发者
+            - button "立即使用" [ref=e101] [cursor=pointer]:
+              - img [ref=e102]
+              - text: 立即使用
+          - img [ref=e105]
+        - generic [ref=e107]:
+          - generic [ref=e108]:
+            - generic [ref=e109]: 分类
+            - button "全部 156" [ref=e110] [cursor=pointer]:
+              - generic [ref=e111]: 全部
+              - generic [ref=e112]: "156"
+            - button "办公效率 24" [ref=e113] [cursor=pointer]:
+              - generic [ref=e114]: 办公效率
+              - generic [ref=e115]: "24"
+            - button "研发工具 38" [ref=e116] [cursor=pointer]:
+              - generic [ref=e117]: 研发工具
+              - generic [ref=e118]: "38"
+            - button "数据分析 18" [ref=e119] [cursor=pointer]:
+              - generic [ref=e120]: 数据分析
+              - generic [ref=e121]: "18"
+            - button "客服支持 15" [ref=e122] [cursor=pointer]:
+              - generic [ref=e123]: 客服支持
+              - generic [ref=e124]: "15"
+            - button "内容创作 22" [ref=e125] [cursor=pointer]:
+              - generic [ref=e126]: 内容创作
+              - generic [ref=e127]: "22"
+          - generic [ref=e128]:
+            - generic [ref=e129]:
+              - generic [ref=e130]:
+                - button "热门" [ref=e131] [cursor=pointer]
+                - button "最新" [ref=e132] [cursor=pointer]
+                - button "评分" [ref=e133] [cursor=pointer]
+              - generic [ref=e134]:
+                - img [ref=e135]
+                - textbox "搜索智能体..." [ref=e138]
+              - button [ref=e139] [cursor=pointer]:
+                - img [ref=e140]
+            - generic [ref=e142]:
+              - generic [ref=e143]:
+                - generic [ref=e144]:
+                  - generic [ref=e145]: 🤖
+                  - generic [ref=e146]:
+                    - generic [ref=e147]: 代码审查专家
+                    - generic [ref=e148]:
+                      - generic [ref=e149]: 李四
+                      - generic [ref=e150]: ·
+                      - generic [ref=e151]: ⭐ 4.9
+                      - generic [ref=e152]: ·
+                      - generic [ref=e153]: 3200+ 使用
+                - paragraph [ref=e154]: 精准识别代码问题，支持多语言审查与优化建议
+                - generic [ref=e155]:
+                  - generic [ref=e156]: 代码
+                  - generic [ref=e157]: 研发
+                - button "使用" [ref=e159] [cursor=pointer]:
+                  - img [ref=e160]
+                  - text: 使用
+              - generic [ref=e162]:
+                - generic [ref=e163]:
+                  - generic [ref=e164]: 📝
+                  - generic [ref=e165]:
+                    - generic [ref=e166]: 文档写作助手
+                    - generic [ref=e167]:
+                      - generic [ref=e168]: 张三
+                      - generic [ref=e169]: ·
+                      - generic [ref=e170]: ⭐ 4.7
+                      - generic [ref=e171]: ·
+                      - generic [ref=e172]: 1800+ 使用
+                - paragraph [ref=e173]: 智能生成技术文档、API 说明、产品手册
+                - generic [ref=e174]:
+                  - generic [ref=e175]: 文档
+                  - generic [ref=e176]: 写作
+                - button "使用" [ref=e178] [cursor=pointer]:
+                  - img [ref=e179]
+                  - text: 使用
+              - generic [ref=e181]:
+                - generic [ref=e182]:
+                  - generic [ref=e183]: 📊
+                  - generic [ref=e184]:
+                    - generic [ref=e185]: 数据分析专家
+                    - generic [ref=e186]:
+                      - generic [ref=e187]: 王五
+                      - generic [ref=e188]: ·
+                      - generic [ref=e189]: ⭐ 4.8
+                      - generic [ref=e190]: ·
+                      - generic [ref=e191]: 2400+ 使用
+                - paragraph [ref=e192]: 复杂数据分析、可视化图表生成、报告输出
+                - generic [ref=e193]:
+                  - generic [ref=e194]: 数据
+                  - generic [ref=e195]: 分析
+                - button "使用" [ref=e197] [cursor=pointer]:
+                  - img [ref=e198]
+                  - text: 使用
+              - generic [ref=e200]:
+                - generic [ref=e201]:
+                  - generic [ref=e202]: 💬
+                  - generic [ref=e203]:
+                    - generic [ref=e204]: 客服问答机器人
+                    - generic [ref=e205]:
+                      - generic [ref=e206]: 赵六
+                      - generic [ref=e207]: ·
+                      - generic [ref=e208]: ⭐ 4.6
+                      - generic [ref=e209]: ·
+                      - generic [ref=e210]: 5000+ 使用
+                - paragraph [ref=e211]: 24/7 智能客服，支持多轮对话与意图识别
+                - generic [ref=e212]:
+                  - generic [ref=e213]: 客服
+                  - generic [ref=e214]: 对话
+                - button "使用" [ref=e216] [cursor=pointer]:
+                  - img [ref=e217]
+                  - text: 使用
+              - generic [ref=e219]:
+                - generic [ref=e220]:
+                  - generic [ref=e221]: 🌐
+                  - generic [ref=e222]:
+                    - generic [ref=e223]: 翻译专家
+                    - generic [ref=e224]:
+                      - generic [ref=e225]: 孙七
+                      - generic [ref=e226]: ·
+                      - generic [ref=e227]: ⭐ 4.5
+                      - generic [ref=e228]: ·
+                      - generic [ref=e229]: 1200+ 使用
+                - paragraph [ref=e230]: 多语言翻译，支持技术文档、代码注释等专业内容
+                - generic [ref=e231]:
+                  - generic [ref=e232]: 翻译
+                  - generic [ref=e233]: 多语言
+                - button "使用" [ref=e235] [cursor=pointer]:
+                  - img [ref=e236]
+                  - text: 使用
+              - generic [ref=e238]:
+                - generic [ref=e239]:
+                  - generic [ref=e240]: 📋
+                  - generic [ref=e241]:
+                    - generic [ref=e242]: 项目管理助手
+                    - generic [ref=e243]:
+                      - generic [ref=e244]: 周八
+                      - generic [ref=e245]: ·
+                      - generic [ref=e246]: ⭐ 4.4
+                      - generic [ref=e247]: ·
+                      - generic [ref=e248]: 900+ 使用
+                - paragraph [ref=e249]: 任务分解、进度追踪、资源分配建议
+                - generic [ref=e250]:
+                  - generic [ref=e251]: 项目
+                  - generic [ref=e252]: 管理
+                - button "使用" [ref=e254] [cursor=pointer]:
+                  - img [ref=e255]
+                  - text: 使用

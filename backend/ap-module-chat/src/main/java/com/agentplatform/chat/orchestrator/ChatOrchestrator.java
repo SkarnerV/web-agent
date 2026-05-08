@@ -19,6 +19,7 @@ import com.agentplatform.chat.sse.SseEventBuilder.SseEventWithMeta;
 import com.agentplatform.chat.sse.SseEventCacheService;
 import com.agentplatform.chat.tool.BuiltinToolExecutor;
 import com.agentplatform.chat.tool.BuiltinToolExecutor.PendingQuestion;
+import com.agentplatform.chat.tool.BuiltinToolExecutor.TodoItem;
 import com.agentplatform.chat.tool.BuiltinToolExecutor.TodoState;
 import com.agentplatform.chat.tool.ToolDispatcher;
 import com.agentplatform.common.core.tool.BuiltinUiTools;
@@ -60,6 +61,8 @@ public class ChatOrchestrator {
             - When you need the user's answer before continuing, call the `question` tool instead of writing the question as assistant text.
             - By default, call `question` with 3-6 concise answer options and allow_free_text=true so the UI shows the options plus one open-ended free-text answer field.
             - If the user asks you to ask multiple questions, call `question` for exactly one question, wait for the tool result, then continue with the next question until the requested count is complete.
+            - The `todo` tool is an active execution plan, not a final response. After creating or updating todos, keep working through pending/in_progress/blocked items and update `todo` as items start or finish.
+            - Do not give a final summary while any todo item is not completed. If a todo item is blocked by missing user input, call `question`; otherwise keep executing until every todo item is completed.
             """;
 
     private final ChatSessionService sessionService;
@@ -357,6 +360,25 @@ public class ChatOrchestrator {
                 }
 
                 if (stepToolCalls.isEmpty()) {
+                    if (hasOpenTodoItems(todoState)) {
+                        if (step >= startStep + maxSteps) {
+                            UUID stateId = saveSessionState(session.getId(), context, step,
+                                    toolCache("step_limit", messageId, null, todoState,
+                                            toolCallRecords, toolResultRecords));
+                            sendAndCache(emitter, evt.stepLimit(step, maxSteps, stateId), messageId);
+                            persistMessage(session.getId(), messageId, fullContent.toString(),
+                                    "incomplete", agentId, modelId, totalSteps,
+                                    toolCallRecords, toolResultRecords, promptTokens, completionTokens,
+                                    isUpdate);
+                            emitter.complete();
+                            return;
+                        }
+                        if (!assistantStepContent.toString().isBlank()) {
+                            context.add(LlmMessage.assistant(assistantStepContent.toString()));
+                        }
+                        context.add(LlmMessage.user(todoContinuationPrompt(todoState)));
+                        continue;
+                    }
                     break;
                 }
 
@@ -738,10 +760,45 @@ public class ChatOrchestrator {
 
     private Map<String, Object> todoResultMap(TodoState todoState) {
         Map<String, Object> result = new LinkedHashMap<>();
+        List<TodoItem> openItems = openTodoItems(todoState);
         result.put("status", "updated");
         result.put("title", todoState.title());
         result.put("items", todoItemsAsMaps(todoState));
+        result.put("all_completed", openItems.isEmpty());
+        result.put("remaining_count", openItems.size());
+        if (!openItems.isEmpty()) {
+            result.put("instruction", "Continue working through the todo list and call `todo` again as item statuses change. Do not finish until every item is completed.");
+        }
         return result;
+    }
+
+    private boolean hasOpenTodoItems(TodoState todoState) {
+        return !openTodoItems(todoState).isEmpty();
+    }
+
+    private List<TodoItem> openTodoItems(TodoState todoState) {
+        if (todoState == null || todoState.items() == null) {
+            return List.of();
+        }
+        return todoState.items().stream()
+                .filter(item -> !"completed".equalsIgnoreCase(item.status()))
+                .toList();
+    }
+
+    private String todoContinuationPrompt(TodoState todoState) {
+        return """
+                Runtime todo continuation:
+                The visible todo list is still not done. Continue working now instead of ending the answer.
+                Rules:
+                - Use the todo list as the execution plan.
+                - Work through every pending, in_progress, or blocked item until all items are completed.
+                - Call `todo` whenever an item starts, becomes blocked, or is completed so the UI stays current.
+                - Do not give a final summary until every todo item status is completed.
+                - If a blocked item needs user input, call `question`.
+
+                Current todo JSON:
+                %s
+                """.formatted(toJson(todoStateAsMap(todoState)));
     }
 
     private Map<String, Object> todoStateAsMap(TodoState todoState) {

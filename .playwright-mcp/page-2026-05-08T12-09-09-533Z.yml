@@ -1,0 +1,74 @@
+- generic [ref=e231]:
+  - complementary [ref=e232]:
+    - img [ref=e235]
+    - button "首页" [ref=e237] [cursor=pointer]:
+      - img [ref=e239]
+    - button "对话" [ref=e244] [cursor=pointer]:
+      - img [ref=e246]
+    - button "智能体" [ref=e249] [cursor=pointer]:
+      - img [ref=e251]
+    - button "Skill" [ref=e254] [cursor=pointer]:
+      - img [ref=e256]
+    - button "MCP" [ref=e261] [cursor=pointer]:
+      - img [ref=e263]
+    - button "知识库" [ref=e265] [cursor=pointer]:
+      - img [ref=e267]
+    - button "模型管理" [ref=e270] [cursor=pointer]:
+      - img [ref=e272]
+    - button "智能体市场" [ref=e276] [cursor=pointer]:
+      - img [ref=e278]
+    - button "Skill 市场" [ref=e283] [cursor=pointer]:
+      - img [ref=e285]
+    - button "MCP 市场" [ref=e289] [cursor=pointer]:
+      - img [ref=e291]
+    - button "创建" [ref=e296] [cursor=pointer]:
+      - img [ref=e297]
+    - button [ref=e299] [cursor=pointer]:
+      - img [ref=e300]
+  - generic [ref=e303]:
+    - generic [ref=e304]:
+      - button "新建对话" [ref=e305] [cursor=pointer]:
+        - img [ref=e306]
+        - generic [ref=e307]: 新建对话
+      - generic [ref=e308]:
+        - img [ref=e309]
+        - textbox "搜索对话..." [ref=e312]
+      - generic [ref=e314]:
+        - generic [ref=e315]: 今天
+        - button "新对话 test 20:08 删除对话" [ref=e316] [cursor=pointer]:
+          - generic [ref=e317]:
+            - generic [ref=e318]: 新对话
+            - generic [ref=e319]:
+              - generic [ref=e320]: test
+              - generic [ref=e321]: 20:08
+          - button "删除对话" [ref=e322]:
+            - generic [ref=e323]: ✕
+        - button "🐶 **汪汪！摇着尾巴等你说话呢～** test 20:00 删除对话" [ref=e324] [cursor=pointer]:
+          - generic [ref=e325]:
+            - generic [ref=e326]: 🐶 **汪汪！摇着尾巴等你说话呢～**
+            - generic [ref=e327]:
+              - generic [ref=e328]: test
+              - generic [ref=e329]: 20:00
+          - button "删除对话" [ref=e330]:
+            - generic [ref=e331]: ✕
+    - generic [ref=e332]:
+      - generic [ref=e333]:
+        - button "选择智能体" [ref=e335] [cursor=pointer]:
+          - img [ref=e337]
+          - generic [ref=e340]: 选择智能体
+          - img [ref=e341]
+        - generic [ref=e343]:
+          - button [ref=e344] [cursor=pointer]:
+            - img [ref=e345]
+          - button [ref=e347] [cursor=pointer]:
+            - img [ref=e348]
+      - generic [ref=e354]:
+        - img [ref=e355]
+        - paragraph [ref=e358]: 选择一个会话或创建新对话
+      - generic [ref=e360]:
+        - button [ref=e361] [cursor=pointer]:
+          - img [ref=e362]
+        - textbox "选择一个会话或创建新对话开始聊天" [ref=e365]
+        - button "发送" [disabled] [ref=e366]:
+          - img [ref=e367]
+          - generic [ref=e370]: 发送

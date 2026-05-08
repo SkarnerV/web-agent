@@ -1,0 +1,99 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img [ref=e7]
+    - button "首页" [ref=e9] [cursor=pointer]:
+      - img [ref=e11]
+    - button "对话" [ref=e16] [cursor=pointer]:
+      - img [ref=e18]
+    - button "智能体" [ref=e21] [cursor=pointer]:
+      - img [ref=e23]
+    - button "Skill" [ref=e26] [cursor=pointer]:
+      - img [ref=e28]
+    - button "MCP" [ref=e33] [cursor=pointer]:
+      - img [ref=e35]
+    - button "知识库" [ref=e37] [cursor=pointer]:
+      - img [ref=e39]
+    - button "模型管理" [ref=e42] [cursor=pointer]:
+      - img [ref=e44]
+    - button "智能体市场" [ref=e48] [cursor=pointer]:
+      - img [ref=e50]
+    - button "Skill 市场" [ref=e55] [cursor=pointer]:
+      - img [ref=e57]
+    - button "MCP 市场" [ref=e61] [cursor=pointer]:
+      - img [ref=e63]
+    - button "创建" [ref=e68] [cursor=pointer]:
+      - img [ref=e69]
+    - button [ref=e71] [cursor=pointer]:
+      - img [ref=e72]
+  - generic [ref=e75]:
+    - banner [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]: 我的资产
+        - img [ref=e79]
+        - generic [ref=e81]: DeleteTestAgent1778242100126
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - img
+          - textbox "搜索..." [ref=e86]
+        - button [ref=e87] [cursor=pointer]:
+          - img [ref=e88]
+        - button "张" [ref=e91] [cursor=pointer]:
+          - generic [ref=e93]: 张
+    - main [ref=e94]:
+      - generic [ref=e95]:
+        - button "返回智能体" [ref=e96] [cursor=pointer]:
+          - img [ref=e97]
+          - generic [ref=e99]: 返回智能体
+        - generic [ref=e100]:
+          - img [ref=e102]
+          - generic [ref=e105]:
+            - heading "DeleteTestAgent1778242100126" [level=1] [ref=e107]
+            - generic [ref=e108]:
+              - generic [ref=e109]: 发布于 今天
+              - generic [ref=e110]: ·
+              - generic [ref=e111]: "状态: 草稿"
+          - generic [ref=e112]:
+            - button "收藏" [ref=e113] [cursor=pointer]:
+              - img [ref=e114]
+              - text: 收藏
+            - button "使用" [ref=e116] [cursor=pointer]:
+              - img [ref=e117]
+              - text: 使用
+        - generic [ref=e119]:
+          - button "简介" [ref=e120] [cursor=pointer]
+          - button "工具能力" [ref=e121] [cursor=pointer]
+          - button "版本历史" [ref=e122] [cursor=pointer]
+        - generic [ref=e123]:
+          - generic [ref=e124]:
+            - heading "产品简介" [level=2] [ref=e125]
+            - paragraph [ref=e126]: 暂无简介
+            - generic [ref=e127]:
+              - generic [ref=e128]: "最大步数: 5"
+              - generic [ref=e129]: "模型: 默认"
+          - generic [ref=e130]:
+            - generic [ref=e131]:
+              - heading "数据统计" [level=3] [ref=e132]
+              - generic [ref=e133]:
+                - generic [ref=e134]:
+                  - img [ref=e136]
+                  - generic [ref=e141]:
+                    - generic [ref=e142]: 使用次数
+                    - generic [ref=e143]: "0"
+                - generic [ref=e144]:
+                  - img [ref=e146]
+                  - generic [ref=e148]:
+                    - generic [ref=e149]: 收藏数
+                    - generic [ref=e150]: "0"
+                - generic [ref=e151]:
+                  - img [ref=e153]
+                  - generic [ref=e155]:
+                    - generic [ref=e156]: 评价
+                    - generic [ref=e157]: "0"
+            - generic [ref=e158]:
+              - heading "标签" [level=3] [ref=e159]
+              - generic [ref=e160]:
+                - generic [ref=e161]: 草稿
+                - generic [ref=e162]: "最大步数: 5"
+            - generic [ref=e163]:
+              - heading "内置工具 (0)" [level=3] [ref=e164]
+              - generic [ref=e165]: 暂无工具

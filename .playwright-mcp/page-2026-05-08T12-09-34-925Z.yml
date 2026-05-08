@@ -1,0 +1,57 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - img [ref=e7]
+    - button "首页" [ref=e9] [cursor=pointer]:
+      - img [ref=e11]
+    - button "对话" [ref=e16] [cursor=pointer]:
+      - img [ref=e18]
+    - button "智能体" [ref=e21] [cursor=pointer]:
+      - img [ref=e23]
+    - button "Skill" [ref=e26] [cursor=pointer]:
+      - img [ref=e28]
+    - button "MCP" [ref=e33] [cursor=pointer]:
+      - img [ref=e35]
+    - button "知识库" [ref=e37] [cursor=pointer]:
+      - img [ref=e39]
+    - button "模型管理" [ref=e42] [cursor=pointer]:
+      - img [ref=e44]
+    - button "智能体市场" [ref=e48] [cursor=pointer]:
+      - img [ref=e50]
+    - button "Skill 市场" [ref=e55] [cursor=pointer]:
+      - img [ref=e57]
+    - button "MCP 市场" [ref=e61] [cursor=pointer]:
+      - img [ref=e63]
+    - button "创建" [ref=e68] [cursor=pointer]:
+      - img [ref=e69]
+    - button [ref=e71] [cursor=pointer]:
+      - img [ref=e72]
+  - generic [ref=e75]:
+    - banner [ref=e76]:
+      - generic [ref=e77]:
+        - generic [ref=e78]: 市场
+        - img [ref=e79]
+        - generic [ref=e81]: Skill 市场
+      - generic [ref=e82]:
+        - generic [ref=e83]:
+          - img
+          - textbox "搜索..." [ref=e86]
+        - button [ref=e87] [cursor=pointer]:
+          - img [ref=e88]
+        - button "张" [ref=e91] [cursor=pointer]:
+          - generic [ref=e93]: 张
+    - main [ref=e94]:
+      - generic [ref=e95]:
+        - generic [ref=e96]:
+          - heading "发现可复用的 Skill" [level=1] [ref=e97]
+          - paragraph [ref=e98]: 为你的智能体添加即插即用的原子能力 · 收录 0 个社区 Skill
+        - generic [ref=e99]:
+          - generic [ref=e100]:
+            - img [ref=e101]
+            - textbox "搜索 Skill…" [ref=e104]
+          - generic [ref=e105]:
+            - button "全部" [ref=e106] [cursor=pointer]
+            - button "代码生成" [ref=e107] [cursor=pointer]
+            - button "数据处理" [ref=e108] [cursor=pointer]
+            - button "文件操作" [ref=e109] [cursor=pointer]
+            - button "网络请求" [ref=e110] [cursor=pointer]
+        - paragraph [ref=e112]: 暂无 Skill

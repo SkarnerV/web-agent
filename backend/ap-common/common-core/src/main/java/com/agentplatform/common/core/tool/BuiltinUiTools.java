@@ -40,7 +40,7 @@ public final class BuiltinUiTools {
                 TODO,
                 SourceType.BUILTIN,
                 null,
-                "Create or update the visible todo list for the current agent run.",
+                "Create or update the visible todo list for the current agent run. The todo list is an active execution plan: continue working and updating it until every item is completed.",
                 parametersJson);
     }
 

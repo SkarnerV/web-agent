@@ -1,0 +1,107 @@
+- generic [ref=e145]:
+  - complementary [ref=e146]:
+    - img [ref=e149]
+    - button "首页" [ref=e151] [cursor=pointer]:
+      - img [ref=e153]
+    - button "对话" [ref=e158] [cursor=pointer]:
+      - img [ref=e160]
+    - button "智能体" [ref=e163] [cursor=pointer]:
+      - img [ref=e165]
+    - button "Skill" [ref=e168] [cursor=pointer]:
+      - img [ref=e170]
+    - button "MCP" [ref=e175] [cursor=pointer]:
+      - img [ref=e177]
+    - button "知识库" [ref=e179] [cursor=pointer]:
+      - img [ref=e181]
+    - button "模型管理" [ref=e184] [cursor=pointer]:
+      - img [ref=e186]
+    - button "智能体市场" [ref=e190] [cursor=pointer]:
+      - img [ref=e192]
+    - button "Skill 市场" [ref=e197] [cursor=pointer]:
+      - img [ref=e199]
+    - button "MCP 市场" [ref=e203] [cursor=pointer]:
+      - img [ref=e205]
+    - button "创建" [ref=e210] [cursor=pointer]:
+      - img [ref=e211]
+    - button [ref=e213] [cursor=pointer]:
+      - img [ref=e214]
+  - generic [ref=e217]:
+    - banner [ref=e218]:
+      - generic [ref=e219]:
+        - generic [ref=e220]: 我的资产
+        - img [ref=e221]
+        - generic [ref=e223]: 智能体
+        - img [ref=e224]
+        - generic [ref=e226]: 创建
+      - generic [ref=e227]:
+        - generic [ref=e228]:
+          - img
+          - textbox "搜索..." [ref=e231]
+        - button [ref=e232] [cursor=pointer]:
+          - img [ref=e233]
+        - button "张" [ref=e236] [cursor=pointer]:
+          - generic [ref=e238]: 张
+    - main [ref=e239]:
+      - generic [ref=e240]:
+        - button "返回" [ref=e241] [cursor=pointer]:
+          - img [ref=e242]
+          - generic [ref=e244]: 返回
+        - generic [ref=e245]: 创建智能体
+        - button "保存草稿" [disabled] [ref=e247]
+      - generic [ref=e248]:
+        - generic [ref=e249]:
+          - generic [ref=e250]: 配置步骤
+          - generic [ref=e251]:
+            - img [ref=e253]
+            - generic [ref=e255]: 基本信息
+          - generic [ref=e256]:
+            - generic [ref=e258]: "2"
+            - generic [ref=e259]: 工具配置
+          - generic [ref=e260]:
+            - generic [ref=e262]: "3"
+            - generic [ref=e263]: 协作智能体
+          - generic [ref=e264]:
+            - generic [ref=e266]: "4"
+            - generic [ref=e267]: 调试发布
+          - generic [ref=e268]:
+            - generic [ref=e269]: 自动保存
+            - generic [ref=e270]: 刚刚
+        - generic [ref=e272]:
+          - generic [ref=e273]:
+            - heading "基本信息" [level=2] [ref=e274]
+            - paragraph [ref=e275]: 设置智能体的基础身份和行为
+          - generic [ref=e276]:
+            - generic [ref=e277]: 头像
+            - generic [ref=e278]:
+              - button [ref=e279] [cursor=pointer]:
+                - img [ref=e280]
+              - button [ref=e283] [cursor=pointer]:
+                - img [ref=e284]
+              - button [ref=e286] [cursor=pointer]:
+                - img [ref=e287]
+              - button [ref=e289] [cursor=pointer]:
+                - img [ref=e290]
+          - generic [ref=e292]:
+            - generic [ref=e293]:
+              - generic [ref=e294]: 名称
+              - generic [ref=e295]: "*"
+            - textbox "输入智能体名称" [ref=e297]
+          - generic [ref=e298]:
+            - generic [ref=e299]: 描述
+            - textbox "描述智能体的功能和使用场景" [ref=e300]
+          - generic [ref=e301]:
+            - generic [ref=e302]:
+              - generic [ref=e303]: 模型
+              - combobox [ref=e304]:
+                - option "deepseek-v4-flash" [selected]
+            - generic [ref=e305]:
+              - generic [ref=e306]: 最大步骤数
+              - spinbutton [ref=e307]: "10"
+          - generic [ref=e308]:
+            - generic [ref=e309]:
+              - generic [ref=e310]: 提示词
+              - generic [ref=e311]: 0/2000
+            - textbox "系统提示词..." [ref=e312]
+          - generic [ref=e313]:
+            - button "取消" [ref=e314] [cursor=pointer]
+            - button "下一步" [disabled] [ref=e315]
