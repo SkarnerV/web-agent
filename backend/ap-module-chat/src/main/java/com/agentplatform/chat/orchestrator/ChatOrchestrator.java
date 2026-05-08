@@ -233,16 +233,26 @@ public class ChatOrchestrator {
         ResumeData resume = resumeDataFromState(state,
                 new QuestionAnswer(pending.toolCallId(), answerResult));
 
-        String messageId = resume.messageId();
-        if (messageId == null) {
+        String answeredMessageId = resume.messageId();
+        if (answeredMessageId == null) {
             throw new BizException(ErrorCode.INVALID_REQUEST,
                     Map.of("reason", "Pending question state is missing message_id"));
         }
+        markQuestionAnswered(answeredMessageId, resume.questionAnswer());
 
+        String messageId = UUID.randomUUID().toString();
+        ResumeData continuation = new ResumeData(
+                resume.context(),
+                resume.todoState(),
+                resume.questionAnswer(),
+                messageId,
+                "",
+                new ArrayList<>(),
+                new ArrayList<>());
         String requestId = "req_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12);
         int maxSteps = resolveMaxSteps(session.getCurrentAgentId());
         return startStreamReply(session, requestId, messageId, maxSteps, state.getStepCount(),
-                true, null, resume);
+                false, null, continuation);
     }
 
     private SseEmitter startStreamReply(ChatSessionEntity session, String requestId,
@@ -845,6 +855,37 @@ public class ChatOrchestrator {
         msg.setUsage(usageJson);
 
         messageMapper.insert(msg);
+    }
+
+    private void markQuestionAnswered(String messageId, QuestionAnswer answer) {
+        ChatMessageEntity existing;
+        try {
+            existing = messageMapper.selectById(UUID.fromString(messageId));
+        } catch (IllegalArgumentException e) {
+            throw new BizException(ErrorCode.INVALID_REQUEST,
+                    Map.of("reason", "Pending question state has invalid message_id"));
+        }
+        if (existing == null) {
+            throw new BizException(ErrorCode.CHAT_SESSION_NOT_FOUND);
+        }
+
+        List<Map<String, Object>> toolResults = parseMapList(existing.getToolResults());
+        boolean alreadyRecorded = toolResults.stream().anyMatch(result ->
+                Objects.equals(answer.toolCallId(), stringValue(result.get("tool_call_id")))
+                        && "success".equalsIgnoreCase(stringValue(result.get("status")))
+                        && BuiltinUiTools.QUESTION.equals(stringValue(result.get("builtin_ui"))));
+        if (!alreadyRecorded) {
+            Map<String, Object> answerResult = new LinkedHashMap<>();
+            answerResult.put("tool_call_id", answer.toolCallId());
+            answerResult.put("status", "success");
+            answerResult.put("content", answer.content());
+            answerResult.put("builtin_ui", BuiltinUiTools.QUESTION);
+            toolResults.add(answerResult);
+        }
+
+        existing.setStatus("complete");
+        existing.setToolResults(toolResults.isEmpty() ? null : toJson(toolResults));
+        messageMapper.updateById(existing);
     }
 
     private String toJson(Object obj) {

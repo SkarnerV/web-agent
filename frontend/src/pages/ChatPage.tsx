@@ -527,7 +527,7 @@ const questionFromState = (
   }
 }
 
-const toLocal = (m: ChatMessageVO): LocalMessage => {
+const toLocal = (m: ChatMessageVO, agentName?: string): LocalMessage => {
   let toolCallDetails: ToolCallDetail[] | undefined
   let questions: QuestionCardState[] | undefined
   const toolResults = parseJsonArray(m.toolResults)
@@ -574,8 +574,8 @@ const toLocal = (m: ChatMessageVO): LocalMessage => {
     role: m.role,
     content: m.content ?? '',
     time: m.createdAt,
-    avatar: m.role === 'user' ? '我' : (m.agentId ?? 'A').substring(0, 1).toUpperCase(),
-    agentName: m.agentId ? undefined : undefined,
+    avatar: m.role === 'user' ? '我' : (agentName?.[0] ?? (m.agentId ?? 'A').substring(0, 1).toUpperCase()),
+    agentName: m.role === 'assistant' ? agentName : undefined,
     toolCallDetails,
     questions,
     status: m.status,
@@ -734,7 +734,17 @@ const ChatPage: React.FC = () => {
     setMessagesLoading(true)
     try {
       const detail = await getSession(sessionId)
-      const localMsgs = detail.messages.map(toLocal)
+      let availableAgents = agents
+      if (availableAgents.length === 0) {
+        const result = await listAgents({ page_size: 50 })
+        availableAgents = result.data
+        setAgents(result.data)
+      }
+      const agentNameById = new Map(availableAgents.map((agent) => [agent.id, agent.name]))
+      const defaultAgentName = agentNameById.get(detail.currentAgentId)
+      const localMsgs = detail.messages.map((message) =>
+        toLocal(message, (message.agentId && agentNameById.get(message.agentId)) ?? defaultAgentName),
+      )
       setActiveSessionId(detail.id)
       const sessionSummary: ChatSessionVO = {
         id: detail.id,
@@ -761,7 +771,7 @@ const ChatPage: React.FC = () => {
     } finally {
       setMessagesLoading(false)
     }
-  }, [])
+  }, [agents])
 
   useEffect(() => {
     if (!sessionIdFromUrl || sessionsLoading) return
