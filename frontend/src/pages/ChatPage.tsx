@@ -505,7 +505,8 @@ const questionFromState = (
   const toolCallId = stringValue(state.tool_call_id) ?? stringValue(state.toolCallId)
   const question = stringValue(state.question)
   const rawOptions = Array.isArray(state.options) ? state.options : []
-  if (!questionId || !toolCallId || !question || rawOptions.length === 0) return null
+  const allowFreeText = booleanValue(state.allow_free_text ?? state.allowFreeText)
+  if (!questionId || !toolCallId || !question || (rawOptions.length === 0 && !allowFreeText)) return null
 
   return {
     toolCallId,
@@ -520,7 +521,7 @@ const questionFromState = (
         description: stringValue(option.description),
       }))
       .filter((option) => option.id && option.label),
-    allowFreeText: booleanValue(state.allow_free_text ?? state.allowFreeText),
+    allowFreeText,
     multiSelect: booleanValue(state.multi_select ?? state.multiSelect),
     status: answeredToolCalls.has(toolCallId) ? 'answered' : 'pending',
   }
@@ -1131,22 +1132,40 @@ const ChatPage: React.FC = () => {
     )
     if (!owner) return
 
+    const continuationId = `asst_${Date.now()}`
+    const continuationMsg: LocalMessage = {
+      id: continuationId,
+      role: 'assistant',
+      content: '',
+      time: new Date().toISOString(),
+      avatar: owner.avatar || currentAgent?.name?.[0] || 'A',
+      agentName: owner.agentName ?? currentAgent?.name,
+      status: 'STREAMING',
+    }
+
     setSending(true)
-    setMessages((prev) =>
-      prev.map((message) => ({
+    setMessages((prev) => {
+      const updated = prev.map((message) => ({
         ...message,
         questions: message.questions?.map((item) =>
           item.questionId === question.questionId
             ? {
                 ...item,
-                status: 'answering',
+                status: 'answering' as const,
                 selectedOptionIds: selectedOptionIds ?? [],
                 answerText,
               }
             : item,
         ),
-      })),
-    )
+      }))
+      const ownerIndex = updated.findIndex((message) => message.id === owner.id)
+      if (ownerIndex === -1) return [...updated, continuationMsg]
+      return [
+        ...updated.slice(0, ownerIndex + 1),
+        continuationMsg,
+        ...updated.slice(ownerIndex + 1),
+      ]
+    })
 
     try {
       const { stream } = answerQuestion(activeSessionId, question.sessionStateId, {
@@ -1154,34 +1173,44 @@ const ChatPage: React.FC = () => {
         selectedOptionIds,
         answerText,
       })
-      await consumeAssistantStream(stream, owner.id)
+      await consumeAssistantStream(stream, continuationId)
       setMessages((prev) =>
-        prev.map((message) => ({
-          ...message,
-          questions: message.questions?.map((item) =>
-            item.questionId === question.questionId
-              ? {
-                  ...item,
-                  status: 'answered',
-                  selectedOptionIds: selectedOptionIds ?? [],
-                  answerText,
-                }
-              : item,
-          ),
-        })),
+        prev.map((message) => {
+          const ownsQuestion = message.questions?.some((item) => item.questionId === question.questionId)
+          return {
+            ...message,
+            status: ownsQuestion ? 'COMPLETED' : message.status,
+            questions: message.questions?.map((item) =>
+              item.questionId === question.questionId
+                ? {
+                    ...item,
+                    status: 'answered' as const,
+                    selectedOptionIds: selectedOptionIds ?? [],
+                    answerText,
+                  }
+                : item,
+            ),
+          }
+        }),
       )
     } catch (e) {
       setMessages((prev) =>
         prev.map((message) => {
           const ownsQuestion = message.questions?.some((item) => item.questionId === question.questionId)
+          if (message.id === continuationId) {
+            return {
+              ...message,
+              content: message.content || `提交回答失败: ${e instanceof Error ? e.message : '未知错误'}`,
+              status: 'FAILED',
+            }
+          }
           if (!ownsQuestion) return message
           return {
             ...message,
-            content: message.content || `提交回答失败: ${e instanceof Error ? e.message : '未知错误'}`,
             questions: message.questions?.map((item) =>
-              item.questionId === question.questionId ? { ...item, status: 'pending' } : item,
+              item.questionId === question.questionId ? { ...item, status: 'pending' as const } : item,
             ),
-            status: 'FAILED',
+            status: 'WAITING_USER_INPUT',
           }
         }),
       )
