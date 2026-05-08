@@ -20,38 +20,46 @@ class BuiltinToolExecutorTest {
     }
 
     @Test
-    @DisplayName("question supports open-ended free text without options")
-    void questionSupportsOpenEndedFreeTextWithoutOptions() {
+    @DisplayName("question requires options and always allows open-ended free text")
+    void questionRequiresOptionsAndAlwaysAllowsOpenEndedFreeText() {
         BuiltinToolExecutor.PendingQuestion question = executor.parseQuestion(
                 "call_question_1",
                 """
                         {
                           "question": "What is your favorite color?",
-                          "allow_free_text": true,
-                          "options": []
+                          "options": [
+                            {"id": "red", "label": "Red"},
+                            {"id": "blue", "label": "Blue"},
+                            {"id": "green", "label": "Green"}
+                          ],
+                          "allow_free_text": false
                         }
                         """);
 
         assertThat(question.toolCallId()).isEqualTo("call_question_1");
         assertThat(question.question()).isEqualTo("What is your favorite color?");
         assertThat(question.allowFreeText()).isTrue();
-        assertThat(question.options()).isEmpty();
+        assertThat(question.options()).hasSize(3);
     }
 
     @Test
-    @DisplayName("question rejects empty options when free text is disabled")
-    void questionRejectsEmptyOptionsWithoutFreeText() {
+    @DisplayName("question rejects fewer than three options")
+    void questionRejectsFewerThanThreeOptions() {
         assertThatThrownBy(() -> executor.parseQuestion(
                 "call_question_1",
                 """
                         {
                           "question": "Pick one",
-                          "options": []
+                          "allow_free_text": true,
+                          "options": [
+                            {"id": "a", "label": "A"},
+                            {"id": "b", "label": "B"}
+                          ]
                         }
                         """))
                 .isInstanceOf(BizException.class)
                 .satisfies(error -> assertThat(((BizException) error).getDetails())
                         .containsEntry("reason",
-                                "question.options must contain 1-6 options unless allow_free_text is true"));
+                                "question.options must contain 3-6 options"));
     }
 }

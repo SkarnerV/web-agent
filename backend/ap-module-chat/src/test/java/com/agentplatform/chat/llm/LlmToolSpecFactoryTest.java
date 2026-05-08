@@ -14,9 +14,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class LlmToolSpecFactoryTest {
 
     @Test
-    @DisplayName("question tool advertises open-ended loop usage")
+    @DisplayName("question tool advertises options plus open-ended loop usage")
     @SuppressWarnings("unchecked")
-    void questionToolAdvertisesOpenEndedLoopUsage() {
+    void questionToolAdvertisesOptionsPlusOpenEndedLoopUsage() {
         LlmToolSpecFactory factory = new LlmToolSpecFactory(new ObjectMapper());
 
         Map<String, Object> questionTool = factory.buildTools(Map.of()).stream()
@@ -33,8 +33,8 @@ class LlmToolSpecFactoryTest {
         Map<String, Object> properties = (Map<String, Object>) parameters.get("properties");
         Map<String, Object> options = (Map<String, Object>) properties.get("options");
 
-        assertThat(description).contains("options=[]", "multi-question loops");
-        assertThat((List<String>) parameters.get("required")).containsExactly("question");
-        assertThat(options.get("minItems")).isEqualTo(0);
+        assertThat(description).contains("3-6 answer options", "allow_free_text=true", "multi-question loops");
+        assertThat((List<String>) parameters.get("required")).containsExactly("question", "options");
+        assertThat(options.get("minItems")).isEqualTo(3);
     }
 }

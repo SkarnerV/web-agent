@@ -26,7 +26,7 @@ public class LlmToolSpecFactory {
         Set<String> added = new LinkedHashSet<>();
 
         tools.add(functionTool(BuiltinUiTools.QUESTION,
-                "Ask the user one question and pause until the user answers. Use this instead of writing a question in assistant text whenever you need the user's answer before continuing. For open-ended questions, set allow_free_text=true and options=[]. For multi-question loops, ask one question, wait for the tool result, then ask the next.",
+                "Ask the user one question and pause until the user answers. Use this instead of writing a question in assistant text whenever you need the user's answer before continuing. Default UI: provide 3-6 answer options and set allow_free_text=true so the user also has one open-ended free-text answer field. For multi-question loops, ask one question, wait for the tool result, then ask the next.",
                 BuiltinUiTools.questionSchema()));
         added.add(BuiltinUiTools.QUESTION);
 

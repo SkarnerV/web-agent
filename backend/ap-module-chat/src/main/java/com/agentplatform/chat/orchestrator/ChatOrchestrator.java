@@ -58,7 +58,7 @@ public class ChatOrchestrator {
     private static final String BUILTIN_UI_TOOL_INSTRUCTIONS = """
             Runtime tool instructions:
             - When you need the user's answer before continuing, call the `question` tool instead of writing the question as assistant text.
-            - For open-ended questions, call `question` with allow_free_text=true and options=[].
+            - By default, call `question` with 3-6 concise answer options and allow_free_text=true so the UI shows the options plus one open-ended free-text answer field.
             - If the user asks you to ask multiple questions, call `question` for exactly one question, wait for the tool result, then continue with the next question until the requested count is complete.
             """;
 
@@ -397,7 +397,24 @@ public class ChatOrchestrator {
 
                     if (BuiltinUiTools.QUESTION.equals(tcc.toolName())) {
                         long start = System.currentTimeMillis();
-                        PendingQuestion pendingQuestion = builtinToolExecutor.parseQuestion(toolCallId, tcc.arguments());
+                        PendingQuestion pendingQuestion;
+                        try {
+                            pendingQuestion = builtinToolExecutor.parseQuestion(toolCallId, tcc.arguments());
+                        } catch (BizException e) {
+                            String validationMessage = "Invalid question tool call. Call `question` again with "
+                                    + "3-6 answer options and allow_free_text=true so the UI shows options plus "
+                                    + "one open-ended answer field.";
+                            sendAndCache(emitter, evt.toolCallEnd(toolCallId, "failed",
+                                            validationMessage, System.currentTimeMillis() - start),
+                                    messageId);
+                            toolResultRecords.add(Map.of(
+                                    "tool_call_id", toolCallId,
+                                    "status", "failed",
+                                    "content", validationMessage,
+                                    "builtin_ui", BuiltinUiTools.QUESTION));
+                            context.add(LlmMessage.toolResult(toolCallId, validationMessage));
+                            continue;
+                        }
                         Map<String, Object> questionState = pendingQuestionAsMap(pendingQuestion);
                         UUID stateId = UUID.randomUUID();
                         questionState.put("session_state_id", stateId.toString());

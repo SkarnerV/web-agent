@@ -77,16 +77,15 @@ public class BuiltinToolExecutor {
     public PendingQuestion parseQuestion(String toolCallId, String arguments) {
         JsonNode root = parseObject(arguments);
         String question = requiredText(root, "question", "question is required");
-        boolean allowFreeText = root.path("allow_free_text").asBoolean(false);
+        boolean allowFreeText = true;
         boolean multiSelect = root.path("multi_select").asBoolean(false);
         JsonNode optionsNode = root.get("options");
         if (optionsNode == null || optionsNode.isNull()) {
             optionsNode = objectMapper.createArrayNode();
         }
-        if (!optionsNode.isArray() || optionsNode.size() > 6
-                || (optionsNode.isEmpty() && !allowFreeText)) {
+        if (!optionsNode.isArray() || optionsNode.size() < 3 || optionsNode.size() > 6) {
             throw new BizException(ErrorCode.INVALID_REQUEST,
-                    Map.of("reason", "question.options must contain 1-6 options unless allow_free_text is true"));
+                    Map.of("reason", "question.options must contain 3-6 options"));
         }
 
         List<QuestionOption> options = new ArrayList<>();
