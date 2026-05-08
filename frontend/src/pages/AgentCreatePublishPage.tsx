@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ChevronLeft, Check, Rocket, Globe, Lock } from 'lucide-react'
+import { ChevronLeft, Check, Rocket, Globe, Lock, Users } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { createAgent } from '../api/agent'
@@ -14,7 +14,7 @@ import {
 } from './agentWizardDraft'
 
 type StepType = 1 | 2 | 3 | 4
-type PublishScopeType = 'public' | 'private'
+type PublishScopeType = 'private' | 'team' | 'public'
 
 interface ChecklistItem {
   id: string
@@ -81,19 +81,26 @@ const PublishScopeCard: React.FC<{
   onClick: () => void
 }> = ({ type, active, onClick }) => {
   const config = {
+    private: {
+      icon: Lock,
+      label: '私人',
+      description: '仅自己可以查看和使用此智能体',
+      iconBg: 'bg-gray-100',
+      iconColor: 'text-gray-600',
+    },
+    team: {
+      icon: Users,
+      label: '团队',
+      description: '团队成员可以查看和使用此智能体',
+      iconBg: 'bg-info-50',
+      iconColor: 'text-info-500',
+    },
     public: {
       icon: Globe,
-      label: '公开发布',
+      label: '公开',
       description: '所有人都可以查看和使用此智能体',
       iconBg: 'bg-brand-50',
       iconColor: 'text-brand-500',
-    },
-    private: {
-      icon: Lock,
-      label: '私有发布',
-      description: '仅团队成员可以查看和使用',
-      iconBg: 'bg-gray-100',
-      iconColor: 'text-gray-600',
     },
   }
 
@@ -131,7 +138,11 @@ const PublishScopeCard: React.FC<{
 const AgentCreatePublishPage: React.FC = () => {
   const navigate = useNavigate()
   const initialDraft = readAgentWizardDraft()
-  const [publishScope, setPublishScope] = useState<PublishScopeType>(initialDraft.visibility)
+  const [publishScope, setPublishScope] = useState<PublishScopeType>(
+    initialDraft.visibility === 'private' || initialDraft.visibility === 'team' || initialDraft.visibility === 'public'
+      ? initialDraft.visibility
+      : 'private',
+  )
   const [publishNotes, setPublishNotes] = useState(initialDraft.releaseNotes)
   const [version, setVersion] = useState(initialDraft.version)
   const [saving, setSaving] = useState(false)
@@ -282,14 +293,19 @@ const AgentCreatePublishPage: React.FC = () => {
               <label className="text-[13px] font-medium text-text-primary">可见范围</label>
               <div className="flex flex-col gap-3">
                 <PublishScopeCard
-                  type="public"
-                  active={publishScope === 'public'}
-                  onClick={() => setPublishScope('public')}
-                />
-                <PublishScopeCard
                   type="private"
                   active={publishScope === 'private'}
                   onClick={() => setPublishScope('private')}
+                />
+                <PublishScopeCard
+                  type="team"
+                  active={publishScope === 'team'}
+                  onClick={() => setPublishScope('team')}
+                />
+                <PublishScopeCard
+                  type="public"
+                  active={publishScope === 'public'}
+                  onClick={() => setPublishScope('public')}
                 />
               </div>
             </div>

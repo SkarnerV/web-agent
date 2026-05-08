@@ -3,13 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   BookOpen,
   Bot,
-  Calendar,
   ChevronLeft,
-  Code,
-  Database,
-  FileText,
-  Globe,
-  Mail,
   MessageSquare,
   Plug,
   Plus,
@@ -60,17 +54,6 @@ const iconOptions = [
   { id: 'message', icon: MessageSquare, bg: 'bg-error-50', color: 'text-error-500' },
 ]
 
-const builtinTools: BindingItem[] = [
-  { id: 'web_search', name: 'web_search', description: '搜索互联网获取最新信息', type: 'builtin' },
-  { id: 'ask_question', name: 'ask_question', description: '向用户提问以获取更多信息', type: 'builtin' },
-  { id: 'read_file', name: 'read_file', description: '读取文件内容', type: 'builtin' },
-  { id: 'write_file', name: 'write_file', description: '创建或更新文件', type: 'builtin' },
-  { id: 'execute_code', name: 'execute_code', description: '在沙箱环境中执行代码', type: 'builtin' },
-  { id: 'database_query', name: 'database_query', description: '查询数据库获取结构化数据', type: 'builtin' },
-  { id: 'send_email', name: 'send_email', description: '发送电子邮件', type: 'builtin' },
-  { id: 'calendar', name: 'calendar', description: '管理日程和提醒', type: 'builtin' },
-]
-
 const emptySelects: Record<BindingType, string> = {
   builtin: '',
   skill: '',
@@ -85,17 +68,6 @@ const bindingIcon: Record<BindingType, React.FC<{ className?: string }>> = {
   mcp: Plug,
   kb: BookOpen,
   collaborator: Users,
-}
-
-const builtinIcon: Record<string, React.FC<{ className?: string }>> = {
-  web_search: Globe,
-  ask_question: Wand,
-  read_file: FileText,
-  write_file: FileText,
-  execute_code: Code,
-  database_query: Database,
-  send_email: Mail,
-  calendar: Calendar,
 }
 
 const iconStyle: Record<BindingType, { bg: string; color: string }> = {
@@ -119,14 +91,6 @@ function catalogFallback(id: string, type: BindingType): BindingItem {
 }
 
 function selectedToolBinding(binding: ToolBindingVO, mcpCatalog: BindingItem[]): BindingItem | null {
-  if (binding.sourceType === 'builtin') {
-    const builtin = builtinTools.find((tool) => tool.id === binding.toolName)
-    return {
-      ...(builtin ?? catalogFallback(binding.toolName, 'builtin')),
-      toolName: binding.toolName,
-    }
-  }
-
   if (binding.sourceType === 'mcp') {
     const match = binding.sourceId
       ? mcpCatalog.find((item) => item.id === binding.sourceId)
@@ -170,10 +134,9 @@ const PublishDialog: React.FC<{
           <label className="text-[13px] font-medium text-text-primary">可见性</label>
           <div className="flex flex-col gap-1.5">
             {([
+              { value: 'private', label: '私人' },
+              { value: 'team', label: '团队' },
               { value: 'public', label: '公开' },
-              { value: 'group_edit', label: '同组可编辑' },
-              { value: 'group_read', label: '同组只读' },
-              { value: 'private', label: '私有' },
             ] as const).map((opt) => (
               <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -267,7 +230,7 @@ const ConfigSection: React.FC<{
           </p>
         )}
         {items.map((item) => {
-          const ItemIcon = type === 'builtin' ? (builtinIcon[item.id] ?? Wrench) : SectionIcon
+          const ItemIcon = SectionIcon
           return (
             <div
               key={`${item.type}:${item.id}`}
@@ -325,7 +288,7 @@ const AgentEditPage: React.FC = () => {
   const { id } = useParams<{ id: string }>()
   const [models, setModels] = useState<ModelInfo[]>([])
   const [catalog, setCatalog] = useState<Record<BindingType, BindingItem[]>>({
-    builtin: builtinTools,
+    builtin: [],
     skill: [],
     mcp: [],
     kb: [],
@@ -390,7 +353,7 @@ const AgentEditPage: React.FC = () => {
           }))
 
         setCatalog({
-          builtin: builtinTools,
+          builtin: [],
           skill: skillCatalog,
           mcp: mcpCatalog,
           kb: kbCatalog,
@@ -458,22 +421,13 @@ const AgentEditPage: React.FC = () => {
 
   const buildToolBindings = (): ToolBindingRequest[] =>
     bindings
-      .filter((item) => item.type === 'builtin' || item.type === 'mcp')
-      .map((item) => {
-        if (item.type === 'builtin') {
-          return {
-            sourceType: 'builtin',
-            toolName: item.toolName ?? item.name,
-            enabled: true,
-          }
-        }
-        return {
-          sourceType: 'mcp',
-          sourceId: item.sourceId,
-          toolName: item.toolName ?? item.name,
-          enabled: true,
-        }
-      })
+      .filter((item) => item.type === 'mcp')
+      .map((item) => ({
+        sourceType: 'mcp',
+        sourceId: item.sourceId,
+        toolName: item.toolName ?? item.name,
+        enabled: true,
+      }))
 
   const buildUpdateRequest = (): AgentUpdateRequest => ({
     name: formData.name.trim(),
@@ -689,17 +643,6 @@ const AgentEditPage: React.FC = () => {
             <div className="h-px bg-border-subtle" />
 
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-              <ConfigSection
-                title="内置工具"
-                description="平台提供的通用工具能力"
-                type="builtin"
-                items={itemsOfType('builtin')}
-                options={catalog.builtin}
-                selectedId={selectedToAdd.builtin}
-                onSelectedChange={(value) => setSelectedToAdd((prev) => ({ ...prev, builtin: value }))}
-                onAdd={() => handleAddBinding('builtin')}
-                onRemove={handleRemoveBinding}
-              />
               <ConfigSection
                 title="Skill"
                 description="可复用的办公任务能力"

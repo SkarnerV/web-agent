@@ -17,7 +17,7 @@ export interface PageResult<T> {
 // ── Agent types ──
 
 export type AgentStatus = 'draft' | 'published' | 'archived'
-export type AgentVisibility = 'private' | 'public' | 'group_edit' | 'group_read'
+export type AgentVisibility = 'private' | 'team' | 'public'
 
 export interface AgentSummaryVO {
   id: string

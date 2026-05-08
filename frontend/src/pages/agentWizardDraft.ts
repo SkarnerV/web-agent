@@ -1,6 +1,6 @@
 import type { AgentCreateRequest, ToolBindingRequest } from '../api/types'
 
-export type AgentWizardToolType = 'builtin' | 'skill' | 'mcp' | 'kb'
+export type AgentWizardToolType = 'skill' | 'mcp' | 'kb'
 
 export interface AgentWizardToolDraft {
   id: string
@@ -19,7 +19,7 @@ export interface AgentWizardDraft {
   tools: AgentWizardToolDraft[]
   collabMode: string
   errorStrategy: string
-  visibility: 'public' | 'private'
+  visibility: 'private' | 'team' | 'public'
   version: string
   releaseNotes: string
 }
@@ -36,7 +36,7 @@ export const emptyAgentWizardDraft: AgentWizardDraft = {
   tools: [],
   collabMode: 'sequential',
   errorStrategy: 'retry',
-  visibility: 'public',
+  visibility: 'private',
   version: '1.0.0',
   releaseNotes: '',
 }
@@ -80,13 +80,6 @@ export function clearAgentWizardDraft() {
 export function toAgentCreateRequest(draft: AgentWizardDraft): AgentCreateRequest {
   const toolBindings = draft.tools
     .map<ToolBindingRequest | null>((tool) => {
-      if (tool.type === 'builtin') {
-        return {
-          sourceType: 'builtin',
-          toolName: tool.name,
-          enabled: true,
-        }
-      }
       if (tool.type === 'mcp') {
         return {
           sourceType: 'mcp',

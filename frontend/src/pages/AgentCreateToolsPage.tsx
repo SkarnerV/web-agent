@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ChevronLeft, Check, Search, Wand, Plug, BookOpen, Plus, X,
-  Globe, FileText, Code, Database, Mail, Calendar, Wrench, Trash2, Loader2,
-  HelpCircle, ListTodo,
+  Trash2, Loader2,
 } from 'lucide-react'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
@@ -20,19 +19,7 @@ import {
 
 type StepType = 1 | 2 | 3 | 4
 
-// ── Built-in tool primitives ──
-
-const builtinTools = [
-  { id: 'web_search', name: 'web_search', description: '搜索互联网获取最新信息', icon: Globe },
-  { id: 'question', name: 'question', description: '向用户提问并等待用户选择后继续执行', icon: HelpCircle },
-  { id: 'todo', name: 'todo', description: '创建或更新右侧信息栏中的任务清单', icon: ListTodo },
-  { id: 'read_file', name: 'read_file', description: '读取文件内容', icon: FileText },
-  { id: 'write_file', name: 'write_file', description: '创建或更新文件', icon: FileText },
-  { id: 'execute_code', name: 'execute_code', description: '在沙箱环境中执行代码', icon: Code },
-  { id: 'database_query', name: 'database_query', description: '查询数据库获取结构化数据', icon: Database },
-  { id: 'send_email', name: 'send_email', description: '发送电子邮件', icon: Mail },
-  { id: 'calendar', name: 'calendar', description: '管理日程和提醒', icon: Calendar },
-]
+// Built-in tools are fetched from the backend; no local stub list.
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B'
@@ -48,7 +35,7 @@ interface ToolItem {
   id: string
   name: string
   description?: string
-  type: 'builtin' | 'skill' | 'mcp' | 'kb'
+  type: 'skill' | 'mcp' | 'kb'
   tools?: string[]
   icon: React.FC<{ className?: string }>
   docs?: number
@@ -56,16 +43,16 @@ interface ToolItem {
   indexedAt?: string
 }
 
-const iconForToolType = (type: AgentWizardToolType, id?: string) => {
+const iconForToolType = (type: AgentWizardToolType) => {
   if (type === 'skill') return Wand
   if (type === 'mcp') return Plug
   if (type === 'kb') return BookOpen
-  return builtinTools.find((tool) => tool.id === id)?.icon ?? Wrench
+  return Wand
 }
 
 const fromDraftTool = (tool: AgentWizardToolDraft): ToolItem => ({
   ...tool,
-  icon: iconForToolType(tool.type, tool.id),
+  icon: iconForToolType(tool.type),
 })
 
 const toDraftTool = (tool: ToolItem): AgentWizardToolDraft => ({
@@ -127,7 +114,7 @@ const AddModal: React.FC<{
   existingIds: string[]
 }> = ({ open, onClose, onAdd, existingIds }) => {
   const [search, setSearch] = useState('')
-  const [tab, setTab] = useState<'builtin' | 'skill' | 'mcp' | 'kb'>('builtin')
+  const [tab, setTab] = useState<'skill' | 'mcp' | 'kb'>('skill')
   const [skillItems, setSkillItems] = useState<ToolItem[]>([])
   const [mcpItems, setMcpItems] = useState<ToolItem[]>([])
   const [kbItems, setKbItems] = useState<ToolItem[]>([])
@@ -175,20 +162,16 @@ const AddModal: React.FC<{
 
   useEffect(() => {
     if (!open) return
-    if (tab !== 'builtin') fetchTab(tab)
+    fetchTab(tab)
   }, [open, tab, fetchTab])
 
   const tabs = [
-    { key: 'builtin' as const, label: '内置工具', icon: Wrench },
     { key: 'skill' as const, label: 'Skill', icon: Wand },
     { key: 'mcp' as const, label: 'MCP', icon: Plug },
     { key: 'kb' as const, label: '知识库', icon: BookOpen },
   ]
 
   const lc = search.toLowerCase()
-  const builtinFiltered = builtinTools.filter(
-    (t) => t.name.toLowerCase().includes(lc) && !existingIds.includes(t.id),
-  )
   const skillsFiltered = skillItems.filter(
     (s) => s.name.toLowerCase().includes(lc) && !existingIds.includes(s.id),
   )
@@ -248,22 +231,6 @@ const AddModal: React.FC<{
         </div>
         {/* Content */}
         <div className="flex-1 overflow-auto p-5 flex flex-col gap-3">
-          {tab === 'builtin' && builtinFiltered.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onAdd({ ...item, type: 'builtin' })}
-              className="flex items-center gap-3 p-3 rounded-lg border border-border-subtle hover:border-brand-500 text-left transition-colors"
-            >
-              <div className="w-9 h-9 rounded-lg bg-brand-50 flex items-center justify-center flex-shrink-0">
-                <item.icon className="w-4.5 h-4.5 text-brand-500" />
-              </div>
-              <div className="flex-1 flex flex-col gap-0.5">
-                <span className="text-[13px] font-semibold text-text-primary">{item.name}</span>
-                <span className="text-[11px] text-text-tertiary">{item.description}</span>
-              </div>
-              <Plus className="w-4 h-4 text-brand-500" />
-            </button>
-          ))}
           {tab === 'skill' && (loading.skill ? renderLoading() : skillsFiltered.length === 0 ? (
             <p className="text-center text-[13px] text-text-tertiary py-8">所有 Skill 已添加</p>
           ) : (
@@ -352,7 +319,6 @@ const AgentCreateToolsPage: React.FC = () => {
     setAddedTools((prev) => prev.filter((t) => t.id !== id))
   }
 
-  const builtins = addedTools.filter((t) => t.type === 'builtin')
   const skills = addedTools.filter((t) => t.type === 'skill')
   const mcps = addedTools.filter((t) => t.type === 'mcp')
   const kbs = addedTools.filter((t) => t.type === 'kb')
@@ -414,7 +380,6 @@ const AgentCreateToolsPage: React.FC = () => {
   )
 
   const sectionConfigs = [
-    { label: '内置工具', icon: Wrench, items: builtins, bg: 'bg-brand-50', color: 'text-brand-500' },
     { label: 'Skill', icon: Wand, items: skills, bg: 'bg-purple-50', color: 'text-purple-500' },
     { label: 'MCP 服务', icon: Plug, items: mcps, bg: 'bg-success-50', color: 'text-success-500' },
     { label: '知识库', icon: BookOpen, items: kbs, bg: 'bg-warning-50', color: 'text-warning-500' },
@@ -444,7 +409,7 @@ const AgentCreateToolsPage: React.FC = () => {
             <div className="flex flex-col gap-1">
               <h2 className="text-lg font-bold text-text-primary">工具配置</h2>
               <p className="text-[13px] text-text-tertiary">
-                为智能体添加内置工具、Skill、MCP 服务、知识库引用
+                为智能体添加 Skill、MCP 服务、知识库引用
               </p>
             </div>
 
